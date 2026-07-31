@@ -19,3 +19,14 @@ Changed files:
 - `src/game/gameState.js`
 - `src/game/playerMovementController.js`
 - `src/game/scoreController.js`
+## v1.2.0 — 2026-07-31T09:20:20.256Z
+
+Type: minor
+
+Changed files:
+- `src/components/ui/GraphicsControls.jsx`
+- `src/components/ui/GraphicsIcon.jsx`
+- `src/styles/dialogs.css`
+- `src/styles/hud.css`
+- `src/styles/responsive.css`
+- `src/styles/themes.css`

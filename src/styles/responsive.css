@@ -60,6 +60,11 @@
     display: none;
   }
 
+  .hud-menu-action strong,
+  .graphics-menu-title strong {
+    font-size: 1.15rem;
+  }
+
   .guide-controls {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
@@ -133,16 +138,12 @@
     font-size: 0.55rem;
   }
 
-  .quality-heading > span {
-    font-size: 0.55rem;
-  }
-
   .quality-options {
-    width: 118px;
+    width: 100%;
   }
 
   .score-card strong {
-    font-size: 1.5rem;
+    font-size: 1.15rem;
   }
 
   .score-best {

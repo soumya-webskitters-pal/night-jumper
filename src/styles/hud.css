@@ -430,7 +430,7 @@ h1 span {
 .hud-menu-action strong {
   overflow: hidden;
   color: #effff5;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 750;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -455,17 +455,8 @@ h1 span {
   backdrop-filter: none;
 }
 
-.settings-popover .quality-heading {
-  gap: 8px;
-  padding: 0;
-}
-
-.settings-popover .quality-heading > span {
-  font-size: 0.58rem;
-}
-
 .settings-popover .quality-options {
-  width: 118px;
+  width: 100%;
 }
 
 .settings-popover .quality-switch button {

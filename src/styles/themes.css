@@ -416,8 +416,18 @@
   box-shadow: none;
 }
 
-:root[data-theme="spiderman"] .quality-heading > span {
-  color: #a9bdff;
+:root[data-theme="spiderman"] .graphics-menu-title strong {
+  color: #eef3ff;
+}
+
+:root[data-theme="spiderman"] .graphics-menu-title small {
+  color: rgba(211, 224, 255, 0.52);
+}
+
+:root[data-theme="spiderman"] .graphics-icon {
+  color: #7fa2ff;
+  background: rgba(68, 112, 230, 0.14);
+  filter: drop-shadow(0 0 5px rgba(127, 162, 255, 0.28));
 }
 
 :root[data-theme="spiderman"] .quality-options {
