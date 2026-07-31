@@ -5,9 +5,11 @@ export default function RunnerCard({ runner, selected }) {
       <span className={`runner-avatar ${runner.avatar}`}>
         <img src={runner.image} alt={`${runner.name} runner preview`} />
       </span>
-      <span className="runner-name">{runner.name}</span>
-      <span className="runner-detail">{runner.detail}</span>
-      <span className="runner-check">{selected ? "Selected" : "Select"}</span>
+      <span className="runner-content">
+        <span className="runner-name">{runner.name}</span>
+        <span className="runner-detail">{runner.detail}</span>
+      </span>
+      <span className="runner-check" aria-hidden="true">{selected ? "✓" : ""}</span>
     </button>
   );
 }

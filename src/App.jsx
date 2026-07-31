@@ -1,9 +1,10 @@
 import GameCanvas from "./components/GameCanvas";
+import CountdownOverlay from "./components/ui/CountdownOverlay";
 import GameFooter from "./components/ui/GameFooter";
 import GameGuide from "./components/ui/GameGuide";
 import GameMeta from "./components/ui/GameMeta";
-import GraphicsControls from "./components/ui/GraphicsControls";
 import Hero from "./components/ui/Hero";
+import HudActions from "./components/ui/HudActions";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import RestartPanel from "./components/ui/RestartPanel";
 import RunnerSelect from "./components/ui/RunnerSelect";
@@ -16,8 +17,11 @@ export default function App() {
       <GameCanvas />
       <main className="hud">
         <Hero />
-        <ScoreCard />
-        <GraphicsControls />
+        <CountdownOverlay />
+        <aside className="hud-cluster" aria-label="Game information and settings">
+          <ScoreCard />
+          <HudActions />
+        </aside>
         <GameFooter />
         <RestartPanel />
         <GameGuide />

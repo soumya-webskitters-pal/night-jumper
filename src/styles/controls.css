@@ -1,0 +1,277 @@
+.fps-meter {
+  position: fixed;
+  bottom: 14px;
+  left: 18px;
+  z-index: 3;
+  margin: 0;
+  color: rgba(158, 255, 190, 0.58);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  padding: 9px;
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  border-radius: 18px;
+  background: rgba(2, 16, 10, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-right: 11px;
+  color: rgba(218, 255, 232, 0.72);
+  font-size: 0.8rem;
+}
+
+.control:first-child kbd {
+  width: auto;
+  min-width: 54px;
+  padding-inline: 7px;
+  font-size: 0.72rem;
+}
+
+kbd {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom-width: 3px;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(#12633a, #061b11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 7px 14px rgba(0, 0, 0, 0.32);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.status {
+  margin: 0;
+  padding: 10px 15px;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  border-radius: 999px;
+  color: #9effc2;
+  background: rgba(2, 18, 10, 0.58);
+  box-shadow: 0 0 28px rgba(0, 255, 102, 0.2);
+  backdrop-filter: blur(14px);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.mobile-controls {
+  display: none;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.mobile-control {
+  min-width: 76px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 255, 102, 0.42);
+  border-radius: 16px;
+  color: #eafff2;
+  background: rgba(3, 30, 17, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 24px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+  touch-action: manipulation;
+}
+
+.mobile-control span {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.mobile-control:active {
+  transform: translateY(2px) scale(0.97);
+  background: rgba(9, 79, 41, 0.92);
+}
+
+.mobile-control-super {
+  border-color: rgba(133, 255, 181, 0.72);
+  background: rgba(8, 71, 37, 0.9);
+}
+
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 18;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #eafff2;
+  background: rgba(0, 7, 4, 0.18);
+  backdrop-filter: blur(0.5px);
+  pointer-events: auto;
+}
+
+.countdown-overlay[hidden] {
+  display: none;
+}
+
+.countdown-label {
+  margin: 0;
+  color: rgba(176, 255, 207, 0.58);
+  font-size: clamp(0.68rem, 1.2vw, 0.82rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.countdown-value {
+  min-width: 3ch;
+  color: rgba(215, 255, 230, 0.72);
+  font-size: clamp(7rem, 22vw, 16rem);
+  font-weight: 850;
+  line-height: 0.82;
+  letter-spacing: -0.07em;
+  text-align: center;
+  text-shadow:
+    0 0 28px rgba(0, 255, 102, 0.3),
+    0 12px 50px rgba(0, 0, 0, 0.5);
+}
+
+.countdown-value.is-pulsing {
+  animation: countdown-pulse 0.68s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+@keyframes countdown-pulse {
+  from {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+  28% {
+    opacity: 0.76;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.38;
+    transform: scale(0.9);
+  }
+}
+
+.restart-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(4, 34, 18, 0.14) 0,
+      rgba(1, 8, 5, 0.5) 42%,
+      rgba(0, 3, 2, 0.66) 100%
+    );
+  backdrop-filter: blur(0.75px) saturate(92%);
+  animation: game-over-overlay 0.32s ease-out both;
+}
+
+.restart-panel[hidden] {
+  display: none;
+}
+
+@keyframes game-over-overlay {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0) saturate(100%);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(0.75px) saturate(92%);
+  }
+}
+
+#restartButton {
+  display: grid;
+  min-width: 190px;
+  place-items: center;
+  padding: 22px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 28px;
+  color: #fff;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.2), transparent 45%),
+    rgba(4, 24, 14, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 24px 80px rgba(0, 0, 0, 0.58),
+    0 0 60px rgba(0, 255, 102, 0.28);
+  cursor: pointer;
+}
+
+.restart-icon {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin-bottom: 12px;
+  place-items: center;
+  border-radius: 50%;
+  color: #62ff9e;
+  background: linear-gradient(145deg, #12633a, #061b11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 0 30px rgba(0, 255, 102, 0.38);
+  font-size: 2.3rem;
+}
+
+.final-score-label {
+  margin-top: 0.25rem;
+  color: rgba(239, 245, 255, 0.7);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+#restartButton .final-score {
+  color: #fff;
+  font-size: 3rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px rgba(0, 255, 102, 0.58);
+}
+
+.restart-action {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+#restartButton small {
+  margin-top: 4px;
+  color: rgba(226, 232, 255, 0.58);
+}
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 255, 102, 0.018) 0, rgba(0, 255, 102, 0.018) 1px, transparent 1px, transparent 4px),
+    linear-gradient(180deg, rgba(1, 10, 6, 0.05), transparent 48%, rgba(0, 0, 0, 0.45)),
+    radial-gradient(circle, transparent 42%, rgba(0, 0, 0, 0.5) 120%);
+}

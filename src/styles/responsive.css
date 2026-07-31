@@ -1,0 +1,187 @@
+@media (max-width: 680px) {
+  .hud {
+    padding: 18px 16px;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 12vw, 3.6rem);
+  }
+
+  .hero {
+    max-width: 130px;
+  }
+
+  .instructions {
+    display: none;
+  }
+
+  .hud-cluster {
+    top: 14px;
+    right: 14px;
+    width: min(218px, calc(100vw - 158px));
+    min-width: 190px;
+    gap: 6px;
+  }
+
+  .build-credit {
+    right: 10px;
+    bottom: 7px;
+    font-size: 0.55rem;
+  }
+
+  .fps-meter {
+    bottom: 7px;
+    left: 10px;
+    font-size: 0.55rem;
+  }
+
+  .score-card {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  .hud-actions {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .hud-action {
+    min-height: 43px;
+    padding: 5px 2px;
+  }
+
+  .hud-action svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .hud-action > span {
+    display: none;
+  }
+
+  .guide-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .guide-controls > div {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px 8px;
+  }
+
+  .guide-controls kbd {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 5px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+  }
+
+  .guide-controls span {
+    font-size: 0.6rem;
+    line-height: 1.35;
+  }
+
+  .guide-controls strong {
+    font-size: 0.72rem;
+  }
+
+  .guide-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .runner-options {
+    overflow-x: hidden;
+    padding: 2px;
+  }
+
+  .runner-options.is-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
+  }
+
+  .runner-option {
+    grid-template-columns: 76px minmax(0, 1fr) 24px;
+    gap: 10px;
+    min-height: 108px;
+    padding: 10px;
+  }
+
+  .runner-avatar {
+    width: 76px;
+    height: 76px;
+    margin: 0;
+  }
+
+  .runner-check {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  .quality-switch {
+    padding: 7px;
+  }
+
+  .quality-switch button {
+    min-height: 30px;
+    padding: 4px 3px;
+    font-size: 0.55rem;
+  }
+
+  .quality-heading > span {
+    font-size: 0.55rem;
+  }
+
+  .quality-options {
+    width: 118px;
+  }
+
+  .score-card strong {
+    font-size: 1.5rem;
+  }
+
+  .score-best {
+    min-width: 44px;
+    padding-left: 10px;
+  }
+
+  .score-best strong {
+    font-size: 1rem;
+  }
+
+  .game-footer {
+    right: 20px;
+    bottom: 44px;
+    left: 20px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .status {
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .controls {
+    display: none;
+  }
+
+  .mobile-controls {
+    display: flex;
+    grid-row: 2;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

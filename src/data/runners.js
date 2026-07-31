@@ -49,3 +49,17 @@ export const runners = [
     avatar: "runner-avatar-zombie",
   },
 ];
+
+export const runnerById = Object.fromEntries(
+  runners.map((runner) => [runner.id, runner]),
+);
+
+export const runnerSources = {
+  tron: "players/neon_runner_animations_set/scene.gltf",
+  sonic: "players/animations_sonic_-_sonic_runners_adventure_model/scene.gltf",
+  tails: "players/animations_tails_-_sonic_runners_adventure/scene.gltf",
+  nicky: "players/nicky/scene.gltf",
+  chacha: "players/cha_cha/scene.gltf",
+  zombie: "players/diaper_zombie/scene.gltf",
+  spiderman: "players/spider-man/scene.gltf",
+};

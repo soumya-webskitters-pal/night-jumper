@@ -1,4 +1,17 @@
 import { gsap } from "gsap";
+import { runnerById, runnerSources } from "../data/runners";
+import { createCameraController } from "./cameraController";
+import { bindGameInputs } from "./inputController";
+import { createAudioController } from "./audioController";
+import { createCollisionSystem } from "./collisionSystem";
+import { createElementFactory } from "./elements";
+import {
+  createGpuMotionMaterial,
+  createRoadFoundation,
+} from "./worldGeneration";
+import { createObstacleFactory } from "./obstacleFactory";
+import { createObstacleSpawner } from "./obstacleSpawner";
+import { runnerAnimationTimeScale } from "./runnerAnimationController";
 
 export function startJumper3D(
   THREE,
@@ -7,6 +20,7 @@ export function startJumper3D(
   runtime = {},
 ) {
   const canvas = runtime.renderer?.domElement || document.querySelector("#gameCanvas");
+  const hud = document.querySelector(".hud");
   const scoreValue = document.querySelector("#scoreValue");
   const highScoreValue = document.querySelector("#highScoreValue");
   const statusText = document.querySelector("#statusText");
@@ -27,6 +41,10 @@ export function startJumper3D(
   const runnerLoading = document.querySelector("#runnerLoading");
   const runnerOptions = [...document.querySelectorAll(".runner-option")];
   const runnerToggle = document.querySelector("#runnerToggle");
+  const cameraToggle = document.querySelector("#cameraToggle");
+  const countdownOverlay = document.querySelector("#countdownOverlay");
+  const countdownLabel = document.querySelector("#countdownLabel");
+  const countdownValue = document.querySelector("#countdownValue");
   const jumpControl = document.querySelector("#jumpControl");
   const superJumpControl = document.querySelector("#superJumpControl");
   const rollControl = document.querySelector("#rollControl");
@@ -48,21 +66,7 @@ export function startJumper3D(
   camera.far = 120;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  let cameraBaseY = 5.1;
-
-  function setCameraView() {
-    const portrait = window.innerWidth / window.innerHeight < 0.8;
-    cameraBaseY = portrait ? 5.6 : 5.1;
-    camera.position.set(
-      portrait ? 2.8 : 4.6,
-      cameraBaseY,
-      portrait ? 15.5 : 13.2,
-    );
-    camera.lookAt(-0.8, 1.55, -1.2);
-    camera.rotation.z = 0;
-  }
-
-  setCameraView();
+  const cameraController = createCameraController(THREE, camera);
 
   const ownsRenderer = !runtime.renderer;
   const renderer =
@@ -101,14 +105,10 @@ export function startJumper3D(
   };
 
   const clock = new THREE.Clock();
-  const playerBox = new THREE.Box3();
-  const obstacleBox = new THREE.Box3();
   const neonMaterials = [];
   const windowMaterials = [];
   const roadMarkers = [];
   const cityBlocks = [];
-  const obstacleTemplates = [];
-  const floatingObstacleTemplates = [];
   let speedParticles = null;
   let runnerSpeedLines = null;
   let superJumpLines = null;
@@ -119,11 +119,6 @@ export function startJumper3D(
   let jumpAction = null;
   let superJumpAction = null;
   let activePlayerAction = null;
-  let audioContext = null;
-  let audioMaster = null;
-  let musicTimer = null;
-  let musicStep = 0;
-  let soundEnabled = false;
   let displayedScore = 0;
   let scoreDatabasePromise = null;
   let highScoreLoaded = false;
@@ -137,27 +132,37 @@ export function startJumper3D(
   const loaderStartedAt = performance.now();
   let loadingCompleteScheduled = false;
   let guideWasRunning = false;
+  let aboutWasRunning = false;
+  let settingsWasRunning = false;
+  let aboutDialogOpen = false;
   let runnerSelectionShown = false;
   let selectedRunner = "tron";
   let playerModel = null;
   let stars = null;
   let roadMaterial = null;
   let laneMaterial = null;
-  let hurdleMaterial = null;
-  let boxTrimMaterial = null;
-  let fenceMaterial = null;
-  let obstacleEdgeMaterial = null;
-  let floatingGoalFrameMaterial = null;
-  let floatingGoalNetMaterial = null;
-  let groundObstacleTexture = null;
-  let userObstacleTextures = null;
-  const boxTextureMaterials = [];
-  const fenceTextureMaterials = [];
   let moon = null;
   let moonHalo = null;
   let lastStatusMessage = "";
   let visualFrame = 0;
   let effectTravel = 0;
+  let countdownTimer = null;
+
+  const audio = createAudioController(() => state.running);
+  const ensureAudio = audio.ensure;
+  const playJumpSound = audio.playJump;
+  const playDuckSound = audio.playRoll;
+  const playImpactSound = audio.playImpact;
+  const playGameOverSound = audio.playGameOver;
+  const collisionSystem = createCollisionSystem(THREE);
+  const { material, mesh } = createElementFactory(THREE);
+  const obstacleFactory = createObstacleFactory(THREE, renderer);
+  const obstacleSpawner = createObstacleSpawner({
+    scene,
+    state,
+    factory: obstacleFactory,
+    nextSpawnDelay,
+  });
 
   function setStatus(message) {
     if (message === lastStatusMessage) return;
@@ -165,8 +170,62 @@ export function startJumper3D(
     statusText.textContent = message;
   }
 
+  function cancelCountdown() {
+    if (countdownTimer !== null) {
+      window.clearTimeout(countdownTimer);
+      countdownTimer = null;
+    }
+    countdownOverlay.hidden = true;
+    countdownOverlay.classList.remove("is-counting");
+  }
+
+  function showCountdownStep(label, value) {
+    countdownLabel.textContent = label;
+    countdownValue.textContent = value;
+    countdownValue.classList.remove("is-pulsing");
+    void countdownValue.offsetWidth;
+    countdownValue.classList.add("is-pulsing");
+  }
+
+  function beginCountdown() {
+    cancelCountdown();
+    if (state.gameOver || !state.playerReady || !state.obstaclesReady) return;
+
+    state.running = false;
+    setDuck(false);
+    playPlayerAction(idleAction || runAction);
+    countdownOverlay.hidden = false;
+    countdownOverlay.classList.add("is-counting");
+
+    const steps = [
+      ["Get ready", "Ready?", 800],
+      ["Starting in", "3", 700],
+      ["Starting in", "2", 700],
+      ["Starting in", "1", 700],
+    ];
+    let stepIndex = 0;
+
+    const advance = () => {
+      if (stepIndex >= steps.length) {
+        cancelCountdown();
+        if (state.gameOver) return;
+        state.running = true;
+        playPlayerAction(runAction || idleAction);
+        clock.getDelta();
+        return;
+      }
+      const [label, value, duration] = steps[stepIndex];
+      stepIndex += 1;
+      showCountdownStep(label, value);
+      countdownTimer = window.setTimeout(advance, duration);
+    };
+
+    advance();
+  }
+
   function openGameGuide() {
     if (!gameGuide.hidden) return;
+    cancelCountdown();
     guideWasRunning = state.running;
     state.running = false;
     setDuck(false);
@@ -187,15 +246,14 @@ export function startJumper3D(
       return;
     }
     if (!state.gameOver && state.playerReady && state.obstaclesReady) {
-      state.running = true;
-      playPlayerAction(runAction || idleAction);
-      clock.getDelta();
+      beginCountdown();
     }
     guideToggle.focus();
   }
 
   function openRunnerSelect() {
     if (!runnerSelect.hidden) return;
+    cancelCountdown();
     state.running = false;
     playPlayerAction(idleAction || runAction);
     runnerSelect.hidden = false;
@@ -210,9 +268,7 @@ export function startJumper3D(
     runnerSelect.hidden = true;
     runnerToggle.setAttribute("aria-expanded", "false");
     if (!state.gameOver && state.playerReady && state.obstaclesReady) {
-      state.running = true;
-      playPlayerAction(runAction || idleAction);
-      clock.getDelta();
+      beginCountdown();
     }
   }
 
@@ -288,105 +344,6 @@ export function startJumper3D(
     } catch (error) {
       console.warn("Unable to save high score to IndexedDB", error);
     }
-  }
-
-  function ensureAudio() {
-    if (!soundEnabled) return;
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioMaster = audioContext.createGain();
-      audioMaster.gain.value = 0.18;
-      audioMaster.connect(audioContext.destination);
-      musicTimer = window.setInterval(playMusicStep, 150);
-    }
-    if (audioContext.state === "suspended") audioContext.resume();
-  }
-
-  function synthTone(
-    frequency,
-    duration,
-    volume = 0.12,
-    type = "sawtooth",
-    endFrequency = frequency,
-    delay = 0,
-  ) {
-    if (!soundEnabled || !audioContext || !audioMaster) return;
-    const now = audioContext.currentTime + delay;
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(Math.max(20, frequency), now);
-    oscillator.frequency.exponentialRampToValueAtTime(
-      Math.max(20, endFrequency),
-      now + duration,
-    );
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    oscillator.connect(gain);
-    gain.connect(audioMaster);
-    oscillator.start(now);
-    oscillator.stop(now + duration + 0.02);
-  }
-
-  function noiseBurst(duration = 0.16, volume = 0.16) {
-    if (!soundEnabled || !audioContext || !audioMaster) return;
-    const frameCount = Math.ceil(audioContext.sampleRate * duration);
-    const buffer = audioContext.createBuffer(
-      1,
-      frameCount,
-      audioContext.sampleRate,
-    );
-    const channel = buffer.getChannelData(0);
-    for (let index = 0; index < frameCount; index += 1) {
-      channel[index] = (Math.random() * 2 - 1) * (1 - index / frameCount);
-    }
-    const source = audioContext.createBufferSource();
-    const filter = audioContext.createBiquadFilter();
-    const gain = audioContext.createGain();
-    filter.type = "bandpass";
-    filter.frequency.value = 440;
-    filter.Q.value = 0.8;
-    gain.gain.value = volume;
-    source.buffer = buffer;
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(audioMaster);
-    source.start();
-  }
-
-  function playMusicStep() {
-    if (!soundEnabled || !audioContext || !state.running) return;
-    const bassPattern = [55, 55, 65.41, 55, 73.42, 65.41, 82.41, 73.42];
-    const leadPattern = [220, 261.63, 329.63, 293.66, 220, 329.63, 392, 329.63];
-    const step = musicStep % bassPattern.length;
-    synthTone(bassPattern[step], 0.13, 0.095, "sawtooth");
-    if (step % 2 === 0) {
-      synthTone(leadPattern[step], 0.1, 0.035, "square", leadPattern[step] * 1.01);
-    }
-    if (step === 0 || step === 4) {
-      synthTone(42, 0.1, 0.13, "sine", 28);
-    }
-    musicStep += 1;
-  }
-
-  function playJumpSound(boosted = false) {
-    synthTone(boosted ? 420 : 310, 0.18, 0.16, "square", boosted ? 880 : 620);
-  }
-
-  function playDuckSound() {
-    synthTone(240, 0.14, 0.13, "sawtooth", 75);
-  }
-
-  function playImpactSound() {
-    noiseBurst(0.22, 0.28);
-    synthTone(105, 0.28, 0.2, "square", 38);
-  }
-
-  function playGameOverSound() {
-    [330, 247, 196, 123].forEach((frequency, index) => {
-      synthTone(frequency, 0.28, 0.11, "triangle", frequency * 0.72, index * 0.13);
-    });
   }
 
   function updateScoreDisplay(value, force = false) {
@@ -511,13 +468,15 @@ export function startJumper3D(
       mode === "spiderman" ? "spiderman" : mode === "day" ? "day" : "night";
     const day = currentTheme === "day";
     const spider = currentTheme === "spiderman";
-    const obstacleGlow = spider ? 0xff3048 : day ? 0xffb52e : 0x00ff66;
     if (persist && !spider) {
       localStorage.setItem("night-runner-theme", currentTheme);
     }
 
     document.documentElement.dataset.theme = currentTheme;
-    themeToggle.textContent = spider ? "Spider" : day ? "Day" : "Night";
+    const themeLabel = themeToggle.querySelector(".hud-action-label");
+    if (themeLabel) {
+      themeLabel.textContent = spider ? "Spider" : day ? "Day" : "Night";
+    }
     themeToggle.setAttribute("aria-pressed", String(day));
     themeToggle.setAttribute(
       "aria-label",
@@ -560,50 +519,7 @@ export function startJumper3D(
     if (laneMaterial) {
       laneMaterial.color.set(spider ? 0xff263d : day ? 0xd69b2d : 0x63c98c);
     }
-    [hurdleMaterial].filter(Boolean).forEach((material) => {
-      material.color.set(day ? 0x050706 : 0x00ff66);
-      material.emissive.set(day ? 0x000000 : 0x00cc55);
-      material.emissiveIntensity = day ? 0 : 0.7;
-      material.metalness = 0.82;
-      material.roughness = day ? 0.42 : 0.3;
-    });
-    boxTextureMaterials.forEach((material) => {
-      material.color.set(0xffffff);
-      material.emissive.set(obstacleGlow);
-      material.emissiveIntensity = day ? 0.12 : 0.2;
-      material.metalness = 0.82;
-      material.roughness = 0.34;
-    });
-    if (boxTrimMaterial) {
-      boxTrimMaterial.color.set(0xc7ccc9);
-      boxTrimMaterial.emissive.set(0x000000);
-      boxTrimMaterial.emissiveIntensity = 0;
-    }
-    [fenceMaterial].filter(Boolean).forEach((material) => {
-      material.color.set(day ? 0x050706 : 0x00ff66);
-      material.emissive.set(day ? 0x000000 : 0x00993f);
-      material.emissiveIntensity = day ? 0 : 1.2;
-      material.roughness = day ? 0.94 : 0.76;
-    });
-    fenceTextureMaterials.forEach((material) => {
-      material.color.set(0xffffff);
-      material.emissive.set(obstacleGlow);
-      material.emissiveIntensity = day ? 0.1 : 0.18;
-      material.roughness = 0.82;
-    });
-    if (obstacleEdgeMaterial) {
-      obstacleEdgeMaterial.color.set(obstacleGlow);
-      obstacleEdgeMaterial.opacity = day ? 0.72 : 0.96;
-    }
-    if (floatingGoalFrameMaterial) {
-      floatingGoalFrameMaterial.color.set(obstacleGlow);
-      floatingGoalFrameMaterial.emissive.set(obstacleGlow);
-      floatingGoalFrameMaterial.emissiveIntensity = day ? 0.28 : 0.75;
-    }
-    if (floatingGoalNetMaterial) {
-      floatingGoalNetMaterial.uniforms.uColor.value.set(obstacleGlow);
-      floatingGoalNetMaterial.uniforms.uOpacity.value = day ? 0.42 : 0.68;
-    }
+    obstacleFactory.setTheme(currentTheme);
     if (speedParticles) {
       speedParticles.material.color.set(
         spider ? 0x4488ff : day ? 0xffc247 : 0x9effbd,
@@ -702,7 +618,6 @@ export function startJumper3D(
         }
       });
     });
-    applyObstacleTextureQuality(high);
   }
 
   function applyAdaptiveResolution(fps, now) {
@@ -727,182 +642,14 @@ export function startJumper3D(
     }
   }
 
-  function prepareObstacleTextures(root) {
-    const textureSlots = [
-      "map",
-      "normalMap",
-      "roughnessMap",
-      "metalnessMap",
-      "emissiveMap",
-    ];
-    const visited = new Set();
-    root.traverse((object) => {
-      if (!object.isMesh) return;
-      const materials = Array.isArray(object.material)
-        ? object.material
-        : [object.material];
-      materials.forEach((objectMaterial) => {
-        textureSlots.forEach((slot) => {
-          const texture = objectMaterial?.[slot];
-          const image = texture?.image;
-          if (!texture || !image || visited.has(texture)) return;
-          visited.add(texture);
-          texture.userData.fullImage = image;
-          const width = image.naturalWidth || image.videoWidth || image.width;
-          const height =
-            image.naturalHeight || image.videoHeight || image.height;
-          if (!width || !height || Math.max(width, height) <= 512) return;
-          const scale = 512 / Math.max(width, height);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(width * scale));
-          canvas.height = Math.max(1, Math.round(height * scale));
-          canvas
-            .getContext("2d", { alpha: true })
-            .drawImage(image, 0, 0, canvas.width, canvas.height);
-          texture.userData.lowImage = canvas;
-        });
-      });
-    });
-  }
-
-  function applyObstacleTextureQuality(high) {
-    obstacleTemplates.forEach((template) => {
-      template.scene.traverse((object) => {
-        if (!object.isMesh) return;
-        const materials = Array.isArray(object.material)
-          ? object.material
-          : [object.material];
-        materials.forEach((objectMaterial) => {
-          [
-            "map",
-            "normalMap",
-            "roughnessMap",
-            "metalnessMap",
-            "emissiveMap",
-          ].forEach((slot) => {
-            const texture = objectMaterial?.[slot];
-            if (!texture?.userData.fullImage) return;
-            texture.image =
-              high || !texture.userData.lowImage
-                ? texture.userData.fullImage
-                : texture.userData.lowImage;
-            texture.needsUpdate = true;
-          });
-        });
-      });
-    });
-  }
-
-  function material(color, roughness = 0.35, metalness = 0.4) {
-    return new THREE.MeshStandardMaterial({ color, roughness, metalness });
-  }
-
-  function mesh(geometry, meshMaterial, cast = true, receive = true) {
-    const object = new THREE.Mesh(geometry, meshMaterial);
-    object.castShadow = cast;
-    object.receiveShadow = receive;
-    return object;
-  }
-
   function createWorld() {
-    const motionVertexShader = `
-      uniform float uTravel;
-      uniform float uWrapMin;
-      uniform float uWrapRange;
-      attribute float aSpeed;
-      void main() {
-        vec3 animated = position;
-        animated.x = uWrapMin + mod(
-          position.x - uWrapMin - uTravel * aSpeed,
-          uWrapRange
-        );
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(animated, 1.0);
-      }
-    `;
-    const motionFragmentShader = `
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      void main() {
-        gl_FragColor = vec4(uColor, uOpacity);
-      }
-    `;
-    const particleVertexShader = `
-      uniform float uTravel;
-      attribute float aSpeed;
-      void main() {
-        vec3 animated = position;
-        animated.x = -38.0 + mod(position.x + 38.0 - uTravel * aSpeed, 76.0);
-        vec4 viewPosition = modelViewMatrix * vec4(animated, 1.0);
-        gl_Position = projectionMatrix * viewPosition;
-        gl_PointSize = clamp(34.0 / max(1.0, -viewPosition.z), 1.0, 3.2);
-      }
-    `;
-    const particleFragmentShader = `
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      void main() {
-        vec2 point = gl_PointCoord - vec2(0.5);
-        float alpha = smoothstep(0.5, 0.08, length(point));
-        gl_FragColor = vec4(uColor, uOpacity * alpha);
-      }
-    `;
-    const createGpuMotionMaterial = ({
-      color,
-      opacity,
-      wrapMin,
-      wrapRange,
-      particles = false,
-    }) => {
-      const uniforms = {
-        uTravel: { value: 0 },
-        uColor: { value: new THREE.Color(color) },
-        uOpacity: { value: opacity },
-        uWrapMin: { value: wrapMin },
-        uWrapRange: { value: wrapRange },
-      };
-      const shaderMaterial = new THREE.ShaderMaterial({
-        uniforms,
-        vertexShader: particles ? particleVertexShader : motionVertexShader,
-        fragmentShader: particles ? particleFragmentShader : motionFragmentShader,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        fog: false,
-      });
-      // Preserve the existing theme API while the shader consumes the uniform.
-      shaderMaterial.color = uniforms.uColor.value;
-      return shaderMaterial;
-    };
-
-    roadMaterial = new THREE.MeshStandardMaterial({
-      color: 0x070d0a,
-      roughness: 0.72,
-      metalness: 0.35,
+    const roadFoundation = createRoadFoundation(THREE, scene, {
+      mesh,
+      material,
     });
-    const road = mesh(new THREE.PlaneGeometry(90, 20), roadMaterial, false, true);
-    road.rotation.x = -Math.PI / 2;
-    road.position.set(0, -0.02, 0);
-    scene.add(road);
-
-    const curbMaterial = material(0x123326, 0.48, 0.58);
-    [-2.4, 2.4].forEach((z) => {
-      const curb = mesh(new THREE.BoxGeometry(90, 0.16, 0.16), curbMaterial);
-      curb.position.set(0, 0.05, z);
-      scene.add(curb);
-    });
-
-    laneMaterial = new THREE.MeshBasicMaterial({ color: 0x63c98c });
-    for (let x = -42; x < 43; x += 3.2) {
-      const lane = mesh(
-        new THREE.BoxGeometry(1.45, 0.025, 0.035),
-        laneMaterial,
-        false,
-        false,
-      );
-      lane.position.set(x, 0.018, 1.35);
-      scene.add(lane);
-      roadMarkers.push(lane);
-    }
+    roadMaterial = roadFoundation.roadMaterial;
+    laneMaterial = roadFoundation.laneMaterial;
+    roadMarkers.push(...roadFoundation.roadMarkers);
 
     const particleCount = 220;
     const particlePositions = new Float32Array(particleCount * 3);
@@ -924,7 +671,7 @@ export function startJumper3D(
     );
     speedParticles = new THREE.Points(
       particleGeometry,
-      createGpuMotionMaterial({
+      createGpuMotionMaterial(THREE, {
         color: 0x9effbd,
         opacity: 0.14,
         particles: true,
@@ -958,7 +705,7 @@ export function startJumper3D(
     );
     runnerSpeedLines = new THREE.LineSegments(
       runnerLineGeometry,
-      createGpuMotionMaterial({
+      createGpuMotionMaterial(THREE, {
         color: 0x8effb4,
         opacity: 0.34,
         wrapMin: -12,
@@ -993,7 +740,7 @@ export function startJumper3D(
     );
     superJumpLines = new THREE.LineSegments(
       jumpLineGeometry,
-      createGpuMotionMaterial({
+      createGpuMotionMaterial(THREE, {
         color: 0xb6ffcc,
         opacity: 0.72,
         wrapMin: -10,
@@ -1326,453 +1073,8 @@ export function startJumper3D(
   async function loadObstacleModels() {
     // Ground obstacles and floating goals are procedural, so no obstacle GLTF
     // downloads are needed.
-    obstacleTemplates.length = 0;
-    floatingObstacleTemplates.length = 0;
     state.obstaclesReady = true;
     finishLoadingIfReady();
-  }
-
-  function getUserObstacleTextures() {
-    if (userObstacleTextures) return userObstacleTextures;
-    const loader = new THREE.TextureLoader();
-    userObstacleTextures = [
-      "texture/image1.jpg",
-      "texture/image2.jpg",
-      "texture/image3.jpg",
-      "texture/image4.jpg",
-      "texture/texture1.jpg",
-    ].map((source) => {
-      const texture = loader.load(source);
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(1.6, 1.6);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = Math.min(
-        8,
-        renderer.capabilities.getMaxAnisotropy(),
-      );
-      return texture;
-    });
-    return userObstacleTextures;
-  }
-
-  function randomMaterial(materials) {
-    return materials[Math.floor(Math.random() * materials.length)];
-  }
-
-  function getObstacleEdgeMaterial() {
-    if (obstacleEdgeMaterial) return obstacleEdgeMaterial;
-    const color =
-      currentTheme === "spiderman"
-        ? 0xff3048
-        : currentTheme === "day"
-          ? 0xffb52e
-          : 0x00ff66;
-    obstacleEdgeMaterial = new THREE.LineBasicMaterial({
-      color,
-      transparent: true,
-      opacity: currentTheme === "day" ? 0.72 : 0.96,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    return obstacleEdgeMaterial;
-  }
-
-  function addGlowingEdges(mesh) {
-    const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry, 25),
-      getObstacleEdgeMaterial(),
-    );
-    edges.renderOrder = 2;
-    mesh.add(edges);
-  }
-
-  function getGroundObstacleMaterial() {
-    if (hurdleMaterial) {
-      return randomMaterial(boxTextureMaterials);
-    }
-
-    const textureCanvas = document.createElement("canvas");
-    textureCanvas.width = 256;
-    textureCanvas.height = 256;
-    const context = textureCanvas.getContext("2d");
-    const textureImage = context.createImageData(256, 256);
-
-    for (let index = 0; index < textureImage.data.length; index += 4) {
-      const grain = 150 + Math.floor(Math.random() * 76);
-      textureImage.data[index] = grain;
-      textureImage.data[index + 1] = grain;
-      textureImage.data[index + 2] = grain;
-      textureImage.data[index + 3] = 255;
-    }
-    context.putImageData(textureImage, 0, 0);
-
-    context.globalAlpha = 0.3;
-    context.strokeStyle = "#202020";
-    context.lineWidth = 2;
-    for (let line = 0; line < 34; line += 1) {
-      const x = Math.random() * 256;
-      const y = Math.random() * 256;
-      context.beginPath();
-      context.moveTo(x, y);
-      context.lineTo(x + 12 + Math.random() * 58, y + (Math.random() - 0.5) * 8);
-      context.stroke();
-    }
-
-    context.globalAlpha = 0.22;
-    context.strokeStyle = "#ffffff";
-    context.lineWidth = 1;
-    for (let seam = 32; seam < 256; seam += 64) {
-      context.beginPath();
-      context.moveTo(seam, 0);
-      context.lineTo(seam, 256);
-      context.stroke();
-    }
-
-    groundObstacleTexture = new THREE.CanvasTexture(textureCanvas);
-    groundObstacleTexture.wrapS = THREE.RepeatWrapping;
-    groundObstacleTexture.wrapT = THREE.RepeatWrapping;
-    groundObstacleTexture.repeat.set(2.5, 2.5);
-    groundObstacleTexture.colorSpace = THREE.SRGBColorSpace;
-    groundObstacleTexture.anisotropy = Math.min(
-      8,
-      renderer.capabilities.getMaxAnisotropy(),
-    );
-
-    const day = currentTheme === "day";
-    hurdleMaterial = new THREE.MeshStandardMaterial({
-      color: day ? 0x050706 : 0x00ff66,
-      emissive: day ? 0x000000 : 0x00cc55,
-      emissiveIntensity: day ? 0 : 0.7,
-      map: groundObstacleTexture,
-      bumpMap: groundObstacleTexture,
-      bumpScale: 0.075,
-      metalness: 0.82,
-      roughness: day ? 0.42 : 0.3,
-    });
-    boxTrimMaterial = new THREE.MeshStandardMaterial({
-      color: 0xc7ccc9,
-      emissive: 0x000000,
-      emissiveIntensity: 0,
-      metalness: 0.95,
-      roughness: 0.22,
-    });
-    getUserObstacleTextures().forEach((texture) => {
-      const material = hurdleMaterial.clone();
-      const glow =
-        currentTheme === "spiderman"
-          ? 0xff3048
-          : currentTheme === "day"
-            ? 0xffb52e
-            : 0x00ff66;
-      material.color.set(0xffffff);
-      material.emissive.set(glow);
-      material.emissiveIntensity = currentTheme === "day" ? 0.12 : 0.2;
-      material.map = texture;
-      material.bumpMap = texture;
-      material.bumpScale = 0.06;
-      material.needsUpdate = true;
-      boxTextureMaterials.push(material);
-    });
-    return randomMaterial(boxTextureMaterials);
-  }
-
-  function getFenceMaterial() {
-    if (fenceMaterial) {
-      return randomMaterial(fenceTextureMaterials);
-    }
-
-    const textureCanvas = document.createElement("canvas");
-    textureCanvas.width = 256;
-    textureCanvas.height = 256;
-    const context = textureCanvas.getContext("2d");
-    const woodImage = context.createImageData(256, 256);
-
-    for (let y = 0; y < 256; y += 1) {
-      for (let x = 0; x < 256; x += 1) {
-        const index = (y * 256 + x) * 4;
-        const grain =
-          Math.sin(y * 0.18 + Math.sin(x * 0.035) * 4) * 21 +
-          Math.sin(y * 0.055 + x * 0.014) * 13 +
-          (Math.random() - 0.5) * 18;
-        const shade = Math.max(72, Math.min(218, Math.round(148 + grain)));
-        woodImage.data[index] = shade;
-        woodImage.data[index + 1] = shade;
-        woodImage.data[index + 2] = shade;
-        woodImage.data[index + 3] = 255;
-      }
-    }
-    context.putImageData(woodImage, 0, 0);
-
-    // Dark, irregular rings make the procedural surface read as timber.
-    context.globalAlpha = 0.42;
-    context.strokeStyle = "#282828";
-    context.lineWidth = 3;
-    [
-      [58, 78, 19, 8],
-      [177, 166, 27, 11],
-      [218, 43, 13, 6],
-    ].forEach(([x, y, radiusX, radiusY]) => {
-      context.beginPath();
-      context.ellipse(x, y, radiusX, radiusY, -0.12, 0, Math.PI * 2);
-      context.stroke();
-      context.beginPath();
-      context.ellipse(x, y, radiusX * 0.45, radiusY * 0.45, -0.12, 0, Math.PI * 2);
-      context.stroke();
-    });
-
-    const woodTexture = new THREE.CanvasTexture(textureCanvas);
-    woodTexture.wrapS = THREE.RepeatWrapping;
-    woodTexture.wrapT = THREE.RepeatWrapping;
-    woodTexture.repeat.set(1.2, 2.8);
-    woodTexture.colorSpace = THREE.SRGBColorSpace;
-    woodTexture.anisotropy = Math.min(
-      8,
-      renderer.capabilities.getMaxAnisotropy(),
-    );
-
-    const day = currentTheme === "day";
-    fenceMaterial = new THREE.MeshStandardMaterial({
-      color: day ? 0x050706 : 0x00ff66,
-      emissive: day ? 0x000000 : 0x00993f,
-      emissiveIntensity: day ? 0 : 1.2,
-      map: woodTexture,
-      bumpMap: woodTexture,
-      bumpScale: 0.11,
-      metalness: 0,
-      roughness: day ? 0.94 : 0.76,
-    });
-    getUserObstacleTextures().forEach((texture) => {
-      const material = fenceMaterial.clone();
-      const glow =
-        currentTheme === "spiderman"
-          ? 0xff3048
-          : currentTheme === "day"
-            ? 0xffb52e
-            : 0x00ff66;
-      material.color.set(0xffffff);
-      material.emissive.set(glow);
-      material.emissiveIntensity = currentTheme === "day" ? 0.1 : 0.18;
-      material.map = texture;
-      material.bumpMap = texture;
-      material.bumpScale = 0.09;
-      material.needsUpdate = true;
-      fenceTextureMaterials.push(material);
-    });
-    return randomMaterial(fenceTextureMaterials);
-  }
-
-  function createHurdleObstacle() {
-    const group = new THREE.Group();
-    const obstacleMaterial = getFenceMaterial();
-
-    const addBar = (width, height, depth, x, y, z) => {
-      const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, depth),
-        obstacleMaterial,
-      );
-      bar.position.set(x, y, z);
-      bar.castShadow = true;
-      bar.receiveShadow = true;
-      addGlowingEdges(bar);
-      group.add(bar);
-    };
-
-    // The runner travels along X, so the hurdle spans the lane along Z.
-    addBar(0.14, 1.35, 0.14, 0, 0.675, -1.25);
-    addBar(0.14, 1.35, 0.14, 0, 0.675, 1.25);
-    addBar(0.12, 0.14, 2.72, 0, 0.48, 0);
-    addBar(0.12, 0.14, 2.72, 0, 1.04, 0);
-
-    group.userData.type = "ground";
-    group.userData.modelName = "mesh_hurdle";
-    group.updateMatrixWorld(true);
-    group.userData.localBounds = new THREE.Box3()
-      .setFromObject(group)
-      .applyMatrix4(group.matrixWorld.clone().invert());
-    return group;
-  }
-
-  function createBoxObstacle() {
-    const group = new THREE.Group();
-    const obstacleMaterial = getGroundObstacleMaterial();
-
-    const boxCount = Math.random() < 0.45 ? 2 : 1;
-    for (let index = 0; index < boxCount; index += 1) {
-      const width = 0.85 + Math.random() * 0.25;
-      const height = 0.8 + Math.random() * 0.28;
-      const depth = 0.9 + Math.random() * 0.3;
-      const assembly = new THREE.Group();
-      const box = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, depth),
-        obstacleMaterial,
-      );
-      box.castShadow = true;
-      box.receiveShadow = true;
-      addGlowingEdges(box);
-      assembly.add(box);
-
-      // Raised bands and corner rails give the obstacle a fabricated crate form.
-      const addTrim = (trimWidth, trimHeight, trimDepth, x, y, z) => {
-        const trim = new THREE.Mesh(
-          new THREE.BoxGeometry(trimWidth, trimHeight, trimDepth),
-          boxTrimMaterial,
-        );
-        trim.position.set(x, y, z);
-        trim.castShadow = true;
-        assembly.add(trim);
-      };
-      [-1, 1].forEach((side) => {
-        addTrim(0.045, height * 0.92, 0.09, width / 2 + 0.026, 0, side * depth * 0.36);
-        addTrim(0.045, 0.09, depth * 0.92, width / 2 + 0.026, side * height * 0.36, 0);
-        addTrim(width * 0.92, height * 0.92, 0.045, 0, 0, side * (depth / 2 + 0.026));
-      });
-
-      assembly.position.set(
-        index * 0.12,
-        height / 2 + index * 0.64,
-        index === 0 ? 0 : 0.08,
-      );
-      assembly.rotation.y = (Math.random() - 0.5) * 0.18;
-      group.add(assembly);
-    }
-
-    group.userData.type = "ground";
-    group.userData.modelName = "mesh_boxes";
-    group.updateMatrixWorld(true);
-    group.userData.localBounds = new THREE.Box3()
-      .setFromObject(group)
-      .applyMatrix4(group.matrixWorld.clone().invert());
-    return group;
-  }
-
-  function getFloatingGoalMaterials() {
-    const color =
-      currentTheme === "spiderman"
-        ? 0xff3048
-        : currentTheme === "day"
-          ? 0xffb52e
-          : 0x00ff66;
-    if (!floatingGoalFrameMaterial) {
-      floatingGoalFrameMaterial = new THREE.MeshStandardMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: currentTheme === "day" ? 0.28 : 0.75,
-        metalness: 0.72,
-        roughness: 0.25,
-      });
-    }
-    if (!floatingGoalNetMaterial) {
-      floatingGoalNetMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: new THREE.Color(color) },
-          uOpacity: { value: currentTheme === "day" ? 0.42 : 0.68 },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform vec3 uColor;
-          uniform float uOpacity;
-          varying vec2 vUv;
-          void main() {
-            vec2 grid = abs(fract(vUv * vec2(12.0, 7.0)) - 0.5);
-            float wires = smoothstep(0.42, 0.49, max(grid.x, grid.y));
-            if (wires < 0.04) discard;
-            gl_FragColor = vec4(uColor, wires * uOpacity);
-          }
-        `,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-    }
-    return {
-      frame: floatingGoalFrameMaterial,
-      net: floatingGoalNetMaterial,
-    };
-  }
-
-  function createFloatingGoalObstacle() {
-    const group = new THREE.Group();
-    const goalWidth = 3.1;
-    const goalHeight = 1.45;
-    const barThickness = 0.13;
-    const floatingHeight = 1.82 + Math.random() * 0.16;
-    const materials = getFloatingGoalMaterials();
-    const barGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const frame = new THREE.InstancedMesh(
-      barGeometry,
-      materials.frame,
-      5,
-    );
-    const transform = new THREE.Object3D();
-    const bars = [
-      {
-        position: [0, goalHeight / 2, -goalWidth / 2],
-        scale: [barThickness, goalHeight, barThickness],
-      },
-      {
-        position: [0, goalHeight / 2, goalWidth / 2],
-        scale: [barThickness, goalHeight, barThickness],
-      },
-      {
-        position: [0, goalHeight, 0],
-        scale: [barThickness, barThickness, goalWidth + barThickness],
-      },
-      {
-        position: [0, -floatingHeight / 2, -goalWidth / 2],
-        scale: [barThickness, floatingHeight, barThickness],
-      },
-      {
-        position: [0, -floatingHeight / 2, goalWidth / 2],
-        scale: [barThickness, floatingHeight, barThickness],
-      },
-    ];
-    bars.forEach((bar, index) => {
-      transform.position.set(...bar.position);
-      transform.scale.set(...bar.scale);
-      transform.rotation.set(0, 0, 0);
-      transform.updateMatrix();
-      frame.setMatrixAt(index, transform.matrix);
-    });
-    frame.instanceMatrix.needsUpdate = true;
-    frame.castShadow = true;
-    group.add(frame);
-
-    const net = new THREE.Mesh(
-      new THREE.PlaneGeometry(goalWidth, goalHeight),
-      materials.net,
-    );
-    net.rotation.y = Math.PI / 2;
-    net.position.set(0.06, goalHeight / 2, 0);
-    group.add(net);
-
-    group.position.y = floatingHeight;
-    group.userData.type = "overhead";
-    group.userData.modelName = "floating_soccer_goal";
-    // Only the floating goal section blocks the runner. The two ground
-    // supports sit outside the lane opening and are visual structure.
-    group.userData.localBounds = new THREE.Box3(
-      new THREE.Vector3(-barThickness, 0, -goalWidth / 2),
-      new THREE.Vector3(barThickness, goalHeight, goalWidth / 2),
-    );
-    return group;
-  }
-
-  function createModelObstacle() {
-    const raised = Math.random() < 0.28;
-    if (!raised) {
-      return Math.random() < 0.5
-        ? createHurdleObstacle()
-        : createBoxObstacle();
-    }
-    return createFloatingGoalObstacle();
   }
 
   function nextSpawnDelay() {
@@ -1785,15 +1087,7 @@ export function startJumper3D(
   }
 
   function spawnObstacle() {
-    const object = createModelObstacle();
-    object.position.x = 14;
-    object.position.z = 0;
-    object.userData.speedVariance = Math.random() * 1.2;
-    object.userData.scored = false;
-    scene.add(object);
-    state.obstacles.push(object);
-    state.hasSpawned = true;
-    state.spawnTimer = nextSpawnDelay();
+    obstacleSpawner.spawn();
   }
 
   const player = createPlayer();
@@ -1889,6 +1183,7 @@ export function startJumper3D(
   }
 
   function collide() {
+    cancelCountdown();
     state.running = false;
     state.gameOver = true;
     state.jumping = false;
@@ -1924,10 +1219,11 @@ export function startJumper3D(
   }
 
   function restart() {
+    cancelCountdown();
     killPlayerTweens();
     clearObstacles();
     Object.assign(state, {
-      running: true,
+      running: false,
       playerReady: true,
       gameOver: false,
       score: 0,
@@ -1947,8 +1243,8 @@ export function startJumper3D(
     restartPanel.hidden = true;
     updateScoreDisplay(0, true);
     statusText.textContent = "First obstacle in 5 seconds";
-    playPlayerAction(runAction || idleAction);
-    clock.getDelta();
+    playPlayerAction(idleAction || runAction);
+    beginCountdown();
   }
 
   function updateGame(delta, elapsed) {
@@ -1965,7 +1261,7 @@ export function startJumper3D(
     if (state.jumping) {
       const ascentDuration = state.jumpBoosted ? 0.39 : 0.28;
       const fallDuration = state.jumpBoosted ? 0.58 : 0.46;
-      const jumpHeight = state.jumpBoosted ? 3.05 : 1.85;
+      const jumpHeight = state.jumpBoosted ? 3.05 : 2.1;
       state.jumpTime += delta;
 
       if (state.jumpTime <= ascentDuration) {
@@ -2036,53 +1332,19 @@ export function startJumper3D(
       }
     }
 
-    player.updateMatrixWorld(true);
-    if (player.userData.localBounds) {
-      playerBox.copy(player.userData.localBounds).applyMatrix4(player.matrixWorld);
-    } else {
-      playerBox.setFromObject(player);
-    }
-    // Tron and Spider-Man already crouch through their authored roll clips.
-    // Keep their meshes undistorted while retaining the shorter duck hitbox.
     if (
-      state.ducking &&
-      (selectedRunner === "tron" || selectedRunner === "spiderman")
+      collisionSystem.update({
+        player,
+        obstacles: state.obstacles,
+        state,
+        selectedRunner,
+        worldSpeed,
+        delta,
+        scene,
+        onCollision: collide,
+      })
     ) {
-      playerBox.max.y = playerBox.min.y + (playerBox.max.y - playerBox.min.y) * 0.5;
-    }
-
-    for (let index = state.obstacles.length - 1; index >= 0; index -= 1) {
-      const obstacle = state.obstacles[index];
-      obstacle.userData.speed =
-        worldSpeed + obstacle.userData.speedVariance;
-      obstacle.position.x -= obstacle.userData.speed * delta;
-      obstacle.userData.mixer?.update(delta);
-      obstacle.userData.rotors?.forEach((rotor, rotorIndex) => {
-        rotor.rotation.y += delta * (rotorIndex ? -15 : 15);
-      });
-      obstacle.updateMatrixWorld(true);
-      if (obstacle.userData.localBounds) {
-        obstacleBox
-          .copy(obstacle.userData.localBounds)
-          .applyMatrix4(obstacle.matrixWorld);
-      } else {
-        obstacleBox.setFromObject(obstacle);
-      }
-
-      if (playerBox.intersectsBox(obstacleBox)) {
-        collide();
-        return;
-      }
-
-      if (!obstacle.userData.scored && obstacleBox.max.x < playerBox.min.x) {
-        obstacle.userData.scored = true;
-        state.score += 10;
-      }
-
-      if (obstacle.position.x < -13) {
-        scene.remove(obstacle);
-        state.obstacles.splice(index, 1);
-      }
+      return;
     }
 
     updateScoreDisplay(state.score);
@@ -2101,6 +1363,7 @@ export function startJumper3D(
   }
 
   function animate() {
+    hud?.classList.toggle("is-running", state.running);
     visualFrame += 1;
     fpsFrameCount += 1;
     const fpsNow = performance.now();
@@ -2123,7 +1386,7 @@ export function startJumper3D(
       runAction.timeScale = Math.min(2.3, gameSpeed() / 5.8);
     }
     if (playerMixer) {
-      playerMixer.timeScale = 1;
+      playerMixer.timeScale = runnerAnimationTimeScale(selectedRunner, state);
       playerMixer.update(delta);
     }
 
@@ -2138,97 +1401,27 @@ export function startJumper3D(
     }
     const rimBase = currentTheme === "spiderman" ? 18 : currentTheme === "day" ? 6 : 16;
     rimLight.intensity = rimBase + Math.sin(elapsed * 1.7) * 2;
-    camera.position.y = cameraBaseY + Math.sin(elapsed * 0.45) * 0.06;
-    camera.lookAt(-0.8, 1.55, -1.2);
-    camera.rotation.z = 0;
+    cameraController.update(elapsed);
     if (ownsRenderer) renderer.render(scene, camera);
   }
 
-  document.addEventListener(
-    "keydown",
-    (event) => {
-      ensureAudio();
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        if (event.repeat) return;
-        if (state.gameOver) restart();
-        else if (state.running) jump();
-      }
-      if (event.code === "Space" || event.key === " ") {
-        event.preventDefault();
-        if (event.repeat) return;
-        if (state.gameOver) restart();
-        else if (state.running) jump();
-      }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        if (!event.repeat) roll();
-      }
+  bindGameInputs({
+    canvas,
+    controls: {
+      jump: jumpControl,
+      superJump: superJumpControl,
+      roll: rollControl,
     },
-    true,
-  );
-
-  window.addEventListener("blur", () => setDuck(false));
-
-  let pointerStart = null;
-  let lastUpActionAt = 0;
-  const activateJump = () => {
-    const now = performance.now();
-    if (now - lastUpActionAt <= 320) superJump();
-    else jump();
-    lastUpActionAt = now;
-  };
-
-  canvas.addEventListener("pointerdown", (event) => {
-    ensureAudio();
-    pointerStart = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      button: event.button,
-    };
-    canvas.setPointerCapture?.(event.pointerId);
-  });
-  canvas.addEventListener("pointerup", (event) => {
-    if (!pointerStart || pointerStart.id !== event.pointerId) return;
-    const start = pointerStart;
-    pointerStart = null;
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    const isSwipe = Math.abs(dy) >= 42 && Math.abs(dy) > Math.abs(dx);
-
-    if (start.button === 2 || (isSwipe && dy > 0)) {
-      roll();
-    } else if (isSwipe && dy < 0) {
-      activateJump();
-    } else if (start.button === 0 && Math.hypot(dx, dy) < 18) {
-      activateJump();
-    }
-  });
-  canvas.addEventListener("pointercancel", () => {
-    pointerStart = null;
-  });
-  canvas.addEventListener("contextmenu", (event) => {
-    event.preventDefault();
-    ensureAudio();
-    roll();
-  });
-  jumpControl.addEventListener("click", () => {
-    ensureAudio();
-    jump();
-  });
-  superJumpControl.addEventListener("click", () => {
-    ensureAudio();
-    superJump();
-  });
-  rollControl.addEventListener("click", () => {
-    ensureAudio();
-    roll();
+    getState: () => state,
+    ensureAudio,
+    jump,
+    superJump,
+    roll,
+    stopRoll: () => setDuck(false),
+    restart,
   });
   window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    setCameraView();
+    cameraController.resize();
     renderer.setPixelRatio(
       graphicsQuality === "high"
         ? Math.min(window.devicePixelRatio || 1, 1.5)
@@ -2250,6 +1443,52 @@ export function startJumper3D(
     if (event.target === gameGuide) closeGameGuide();
   });
   runnerToggle.addEventListener("click", openRunnerSelect);
+  window.addEventListener("night-runner:settings-open", () => {
+    settingsWasRunning = state.running;
+    cancelCountdown();
+    state.running = false;
+    setDuck(false);
+    playPlayerAction(idleAction || runAction);
+  });
+  window.addEventListener("night-runner:settings-close", () => {
+    window.setTimeout(() => {
+      if (aboutDialogOpen) {
+        settingsWasRunning = false;
+        return;
+      }
+      const shouldResume =
+        settingsWasRunning &&
+        !state.gameOver &&
+        gameGuide.hidden &&
+        runnerSelect.hidden;
+      settingsWasRunning = false;
+      if (shouldResume) beginCountdown();
+    }, 0);
+  });
+  window.addEventListener("night-runner:about-open", () => {
+    aboutDialogOpen = true;
+    aboutWasRunning = state.running || settingsWasRunning;
+    cancelCountdown();
+    state.running = false;
+    setDuck(false);
+    playPlayerAction(idleAction || runAction);
+  });
+  window.addEventListener("night-runner:about-close", () => {
+    aboutDialogOpen = false;
+    const shouldResume = aboutWasRunning && !state.gameOver;
+    aboutWasRunning = false;
+    if (shouldResume) beginCountdown();
+  });
+  cameraToggle.addEventListener("click", () => {
+    const cameraView = cameraController.cycle();
+    const label = `${cameraView[0].toUpperCase()}${cameraView.slice(1)}`;
+    cameraToggle.dataset.cameraView = cameraView;
+    cameraToggle.title = `Camera: ${label} view`;
+    cameraToggle.setAttribute(
+      "aria-label",
+      `Camera view: ${label}. Change camera angle`,
+    );
+  });
   runnerOptions.forEach((option) => {
     option.addEventListener("click", () => {
       const runnerId = option.dataset.runner;
@@ -2261,36 +1500,19 @@ export function startJumper3D(
       runnerOptions.forEach((button) => {
         button.disabled = true;
       });
-      const runnerNames = {
-        tron: "Tron Legend",
-        sonic: "Sonic Blue",
-        tails: "Sonic Yellow",
-        nicky: "Nicky",
-        chacha: "Cha Cha",
-        zombie: "Diaper Zombie",
-        spiderman: "Spider-Man",
-      };
-      const runnerSources = {
-        tron: "players/neon_runner_animations_set/scene.gltf",
-        sonic:
-          "players/animations_sonic_-_sonic_runners_adventure_model/scene.gltf",
-        tails: "players/animations_tails_-_sonic_runners_adventure/scene.gltf",
-        nicky: "players/nicky/scene.gltf",
-        chacha: "players/cha_cha/scene.gltf",
-        zombie: "players/diaper_zombie/scene.gltf",
-        spiderman: "players/spider-man/scene.gltf",
-      };
-      runnerLoading.textContent = `Loading ${runnerNames[runnerId]}…`;
+      runnerLoading.classList.add("is-active");
+      runnerLoading.textContent = `Loading ${runnerById[runnerId].name}…`;
       const source = runnerSources[runnerId];
       loadPlayerModel(source, runnerId, (loaded) => {
+        runnerLoading.classList.remove("is-active");
         runnerOptions.forEach((button) => {
           button.disabled = false;
           const active = button.dataset.runner === selectedRunner;
           button.classList.toggle("is-selected", active);
           button.setAttribute("aria-pressed", String(active));
           button.querySelector(".runner-check").textContent = active
-            ? "Selected"
-            : "Select";
+            ? "✓"
+            : "";
         });
         if (loaded) {
           runnerLoading.textContent = "";
@@ -2308,19 +1530,12 @@ export function startJumper3D(
     }
   });
   soundToggle.addEventListener("click", () => {
-    soundEnabled = !soundEnabled;
+    const soundEnabled = audio.toggle();
     soundToggle.setAttribute("aria-pressed", String(soundEnabled));
     soundToggle.setAttribute(
       "aria-label",
       soundEnabled ? "Mute sound" : "Enable sound",
     );
-    if (soundEnabled) {
-      ensureAudio();
-      if (audioMaster) audioMaster.gain.setTargetAtTime(0.18, audioContext.currentTime, 0.03);
-      synthTone(440, 0.09, 0.1, "sine", 660);
-    } else if (audioMaster && audioContext) {
-      audioMaster.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.03);
-    }
   });
   lowGraphicsButton.addEventListener("click", () => {
     setGraphicsQuality("low");
