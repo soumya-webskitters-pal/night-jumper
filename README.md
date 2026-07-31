@@ -4,7 +4,7 @@ A neon endless runner built with Three.js. Run through a dark futuristic city, j
 
 ## Play
 
-[Play Night Runner on Netlify](https://imaginative-blini-3595a1.netlify.app/)
+[Play Night Runner on Netlify](night-jumper.netlify.app)
 
 ## Game controls
 
