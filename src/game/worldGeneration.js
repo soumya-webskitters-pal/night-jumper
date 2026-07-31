@@ -103,5 +103,5 @@ export function createRoadFoundation(THREE, scene, { mesh, material }) {
     }
   });
 
-  return { roadMaterial, laneMaterial, roadMarkers };
+  return { roadMaterial, curbMaterial, laneMaterial, roadMarkers };
 }

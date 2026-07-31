@@ -9,14 +9,17 @@ export function createCameraController(THREE, camera) {
     const portrait = window.innerWidth / window.innerHeight < 0.8;
 
     if (view === "back") {
-      baseY = portrait ? 5.15 : 4.55;
-      camera.position.set(portrait ? -11.1 : -9.9, baseY, 0);
-      target.set(-2.4, 1.25, 0);
+      camera.fov = portrait ? 66 : 62;
+      baseY = portrait ? 6.5 : 6.05;
+      camera.position.set(portrait ? -15.8 : -14.2, baseY, 0);
+      target.set(2.2, 1.45, 0);
     } else if (view === "front") {
+      camera.fov = portrait ? 60 : 56;
       baseY = portrait ? 6.1 : 5.35;
       camera.position.set(portrait ? 18.2 : 15.2, baseY, 0);
       target.set(-3.6, 1.45, 0);
     } else {
+      camera.fov = 52;
       baseY = portrait ? 5.6 : 5.1;
       camera.position.set(
         portrait ? 2.8 : 4.6,
@@ -26,6 +29,7 @@ export function createCameraController(THREE, camera) {
       target.set(-0.8, 1.55, -1.2);
     }
 
+    camera.updateProjectionMatrix();
     camera.lookAt(target);
   }
 
@@ -47,5 +51,5 @@ export function createCameraController(THREE, camera) {
   }
 
   apply();
-  return { apply, cycle, resize, update };
+  return { apply, cycle, getView: () => view, resize, update };
 }

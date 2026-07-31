@@ -16,6 +16,16 @@ import { createGameState, resetGameState } from "./gameState";
 import { createScoreController } from "./scoreController";
 import { createCountdownController } from "./countdownController";
 import { createPlayerMovementController } from "./playerMovementController";
+import { createAtmosphereEffects } from "./atmosphereEffects";
+import { createDaySun } from "./daySun";
+import { createNightMoon } from "./nightMoon";
+import { applyThemeTransition } from "./themeTransitionController";
+import { createCityGround } from "./cityGround";
+import { createLoopingCityBackground } from "./loopingCityBackground";
+import { createNearRoadBuildings } from "./nearRoadBuildings";
+import { createBuildingSpiderWebs } from "./buildingSpiderWebs";
+import { createCameraViewSky } from "./cameraViewSky";
+import { createDirectionalCameraFog } from "./directionalCameraFog";
 
 export function startJumper3D(
   THREE,
@@ -90,12 +100,21 @@ export function startJumper3D(
   renderer.toneMappingExposure = 1.15;
 
   const state = createGameState();
+  const atmosphereEffects = createAtmosphereEffects(THREE, scene);
+  const daySun = createDaySun(THREE, scene, gsap);
+  const nightMoon = createNightMoon(THREE, scene, gsap);
+  const cityGround = createCityGround(THREE, scene, gsap);
+  const loopingCityBackground = createLoopingCityBackground(THREE, scene, gsap);
+  const cameraViewSky = createCameraViewSky(THREE, scene, gsap);
+  const directionalCameraFog = createDirectionalCameraFog(THREE, scene, gsap);
 
   const clock = new THREE.Clock();
   const neonMaterials = [];
   const windowMaterials = [];
   const roadMarkers = [];
   const cityBlocks = [];
+  let nearRoadCity = null;
+  let buildingSpiderWebs = null;
   let speedParticles = null;
   let runnerSpeedLines = null;
   let superJumpLines = null;
@@ -124,9 +143,8 @@ export function startJumper3D(
   let playerModel = null;
   let stars = null;
   let roadMaterial = null;
+  let curbMaterial = null;
   let laneMaterial = null;
-  let moon = null;
-  let moonHalo = null;
   let lastStatusMessage = "";
   let visualFrame = 0;
   let effectTravel = 0;
@@ -145,6 +163,7 @@ export function startJumper3D(
     state,
     factory: obstacleFactory,
     nextSpawnDelay,
+    getSpawnX: () => cameraController.getView() === "back" ? 24 : 14,
   });
   const scoreController = createScoreController({
     gsap,
@@ -177,7 +196,7 @@ export function startJumper3D(
   function setStatus(message) {
     if (message === lastStatusMessage) return;
     lastStatusMessage = message;
-    statusText.textContent = message;
+    if (statusText) statusText.textContent = message;
   }
 
   function openGameGuide() {
@@ -245,7 +264,7 @@ export function startJumper3D(
       if (!state.gameOver) {
         state.running = false;
         playPlayerAction(idleAction || runAction);
-        statusText.textContent = "First obstacle in 5 seconds";
+        setStatus("First obstacle in 5 seconds");
         clock.getDelta();
         openGameGuide();
       }
@@ -289,49 +308,6 @@ export function startJumper3D(
   spiderBlueLight.visible = false;
   scene.add(spiderBlueLight);
 
-  const spiderCityWebs = new THREE.Group();
-  spiderCityWebs.name = "spider-city-webs";
-  spiderCityWebs.visible = false;
-  scene.add(spiderCityWebs);
-
-  function createSpiderWeb(x, y, z, radius, color) {
-    const points = [];
-    const spokes = 10;
-    for (let spoke = 0; spoke < spokes; spoke += 1) {
-      const angle = (spoke / spokes) * Math.PI * 2;
-      points.push(0, 0, 0, Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
-    }
-    for (let ring = 1; ring <= 4; ring += 1) {
-      const ringRadius = radius * (ring / 4);
-      for (let segment = 0; segment < spokes; segment += 1) {
-        const angleA = (segment / spokes) * Math.PI * 2;
-        const angleB = ((segment + 1) / spokes) * Math.PI * 2;
-        points.push(
-          Math.cos(angleA) * ringRadius, Math.sin(angleA) * ringRadius, 0,
-          Math.cos(angleB) * ringRadius, Math.sin(angleB) * ringRadius, 0,
-        );
-      }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
-    const web = new THREE.LineSegments(
-      geometry,
-      new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.38,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    web.position.set(x, y, z);
-    spiderCityWebs.add(web);
-  }
-
-  createSpiderWeb(-16, 7.5, -17, 3.7, 0x8fb3ff);
-  createSpiderWeb(-1, 9, -23, 4.6, 0xe4edff);
-  createSpiderWeb(15, 7, -18, 3.9, 0xff7184);
-
   function initialGraphicsQuality() {
     const saved = localStorage.getItem("night-runner-graphics");
     if (saved === "low" || saved === "high") return saved;
@@ -370,38 +346,34 @@ export function startJumper3D(
           : "Switch to day mode",
     );
 
-    scene.background.set(spider ? 0x030716 : day ? 0xaec9c6 : 0x030706);
-    scene.fog.color.set(spider ? 0x07142c : day ? 0xc3d2ce : 0x07100c);
-    scene.fog.density = spider ? 0.027 : day ? 0.024 : 0.028;
-    renderer.toneMappingExposure = day ? 1.08 : 1.15;
-
-    if (roadMaterial) {
-      roadMaterial.color.set(spider ? 0x070b1b : day ? 0xc7d0cc : 0x070d0a);
-      roadMaterial.roughness = day ? 0.88 : 0.72;
-      roadMaterial.metalness = day ? 0.06 : 0.35;
-      roadMaterial.needsUpdate = true;
-    }
-
-    hemisphereLight.color.set(
-      spider ? 0x4169ff : day ? 0xe4fff2 : 0x7ac69a,
-    );
-    hemisphereLight.groundColor.set(
-      spider ? 0x160208 : day ? 0x52645c : 0x050807,
-    );
-    hemisphereLight.intensity = spider ? 1.5 : day ? 2.2 : 1.15;
-    moonLight.color.set(spider ? 0x7da6ff : day ? 0xfff0c4 : 0xb8ffd5);
-    moonLight.intensity = spider ? 2.1 : day ? 1.8 : 3.2;
-    rimLight.color.set(spider ? 0xff2438 : day ? 0xffb52e : 0x32d976);
-    rimLight.intensity = spider ? 18 : day ? 8 : 20;
-    cityGlow.color.set(spider ? 0x2266ff : day ? 0xe6a128 : 0x32a967);
-    cityGlow.intensity = spider ? 22 : day ? 7 : 25;
+    const animateTheme = loadingCompleteScheduled;
+    applyThemeTransition({
+      gsap,
+      theme: currentTheme,
+      animated: animateTheme,
+      scene,
+      renderer,
+      roadMaterial,
+      curbMaterial,
+      laneMaterial,
+      lights: {
+        hemisphere: hemisphereLight,
+        moon: moonLight,
+        rim: rimLight,
+        city: cityGlow,
+      },
+    });
     spiderRedLight.visible = spider;
     spiderBlueLight.visible = spider;
-    spiderCityWebs.visible = spider;
+    buildingSpiderWebs?.setVisible(spider);
 
-    if (laneMaterial) {
-      laneMaterial.color.set(spider ? 0xff263d : day ? 0xd69b2d : 0x63c98c);
-    }
+    atmosphereEffects.setTheme(currentTheme);
+    daySun.setTheme(currentTheme, animateTheme);
+    nightMoon.setTheme(currentTheme, animateTheme);
+    cityGround.setTheme(currentTheme, animateTheme);
+    loopingCityBackground.setTheme(currentTheme, animateTheme);
+    cameraViewSky.setTheme(currentTheme, animateTheme);
+    directionalCameraFog.setTheme(currentTheme, animateTheme);
     obstacleFactory.setTheme(currentTheme);
     if (speedParticles) {
       speedParticles.material.color.set(
@@ -429,8 +401,6 @@ export function startJumper3D(
     });
 
     if (stars) stars.visible = !day;
-    if (moon) moon.visible = currentTheme === "night";
-    if (moonHalo) moonHalo.visible = currentTheme === "night";
 
     cityBlocks.forEach((block) => {
       block.traverse((object) => {
@@ -489,9 +459,12 @@ export function startJumper3D(
       superJumpLines.visible = state.jumping && state.jumpBoosted;
     }
     if (stars) stars.visible = currentTheme !== "day";
+    atmosphereEffects.setHighQuality(high);
 
     cityBlocks.forEach((block) => {
-      block.visible = true;
+      block.visible = block.userData.cameraManaged
+        ? Boolean(block.userData.cameraVisible)
+        : true;
       block.traverse((object) => {
         if (object.userData.highQualityOnly) object.visible = high;
         if (object.userData.buildingMesh) {
@@ -531,6 +504,7 @@ export function startJumper3D(
       material,
     });
     roadMaterial = roadFoundation.roadMaterial;
+    curbMaterial = roadFoundation.curbMaterial;
     laneMaterial = roadFoundation.laneMaterial;
     roadMarkers.push(...roadFoundation.roadMarkers);
 
@@ -656,36 +630,12 @@ export function startJumper3D(
     );
     stars.name = "stars";
     scene.add(stars);
-
-    moon = mesh(
-      new THREE.SphereGeometry(1.7, 24, 24),
-      new THREE.MeshBasicMaterial({
-        color: 0xf0fff6,
-        toneMapped: false,
-      }),
-      false,
-      false,
-    );
-    moon.position.set(-13, 12, -28);
-    scene.add(moon);
-
-    moonHalo = mesh(
-      new THREE.SphereGeometry(2.2, 20, 20),
-      new THREE.MeshBasicMaterial({
-        color: 0x8effb4,
-        transparent: true,
-        opacity: 0.2,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-      false,
-      false,
-    );
-    moonHalo.position.copy(moon.position);
-    scene.add(moonHalo);
-
-    createCity();
+    // Keep only the foreground row close to the road. The repeating image
+    // provides the distant skyline without additional far-away 3D buildings.
+    nearRoadCity = createNearRoadBuildings(THREE, scene);
+    buildingSpiderWebs = createBuildingSpiderWebs(THREE, nearRoadCity.blocks);
+    cityBlocks.push(...nearRoadCity.blocks);
+    windowMaterials.push(...nearRoadCity.windowMaterials);
   }
 
   function createCity() {
@@ -938,13 +888,13 @@ export function startJumper3D(
         selectedRunner = runnerId;
         applyRunnerTheme(runnerId);
         state.playerReady = true;
-        statusText.textContent = "Get ready";
+        setStatus("Get ready");
         finishLoadingIfReady();
         onComplete?.(true);
       };
     const handleError = (error) => {
       console.error(`Unable to load ${runnerId} runner`, error);
-      statusText.textContent = `Could not load ${runnerId} runner`;
+      setStatus(`Could not load ${runnerId} runner`);
       state.playerReady = true;
       finishLoadingIfReady();
       onComplete?.(false);
@@ -1024,7 +974,7 @@ export function startJumper3D(
     });
     animateFinalScore(state.score);
     restartPanel.hidden = false;
-    statusText.textContent = "Collision — press ↑ or restart";
+    setStatus("Collision — press ↑ or restart");
     gsap.fromTo(
       restartButton,
       { opacity: 0, scale: 0.78, y: 20 },
@@ -1047,7 +997,7 @@ export function startJumper3D(
     player.scale.set(1, 1, 1);
     restartPanel.hidden = true;
     updateScoreDisplay(0, true);
-    statusText.textContent = "First obstacle in 5 seconds";
+    setStatus("First obstacle in 5 seconds");
     playPlayerAction(idleAction || runAction);
     beginCountdown();
   }
@@ -1121,7 +1071,9 @@ export function startJumper3D(
     });
     cityBlocks.forEach((block) => {
       block.position.x -= worldSpeed * block.userData.parallax * delta;
-      if (block.position.x < -34) block.position.x += 68;
+      const wrapMin = block.userData.wrapMin ?? -34;
+      const wrapRange = block.userData.wrapRange ?? 68;
+      if (block.position.x < wrapMin) block.position.x += wrapRange;
     });
     if (speedParticles) {
       speedParticles.material.uniforms.uTravel.value = effectTravel;
@@ -1185,6 +1137,11 @@ export function startJumper3D(
 
     const delta = Math.min(clock.getDelta(), 0.04);
     const elapsed = clock.elapsedTime;
+    atmosphereEffects.update(elapsed);
+    directionalCameraFog.update(elapsed);
+    daySun.update(elapsed);
+    nightMoon.update(elapsed);
+    loopingCityBackground.update(delta, gameSpeed(), state.running);
     updateGame(delta, elapsed);
 
     if (runAction && activePlayerAction === runAction && state.running) {
@@ -1286,6 +1243,11 @@ export function startJumper3D(
   });
   cameraToggle.addEventListener("click", () => {
     const cameraView = cameraController.cycle();
+    nearRoadCity?.setCameraView(cameraView);
+    loopingCityBackground.setCameraView(cameraView);
+    atmosphereEffects.setCameraView(cameraView);
+    cameraViewSky.setCameraView(cameraView);
+    directionalCameraFog.setCameraView(cameraView);
     const label = `${cameraView[0].toUpperCase()}${cameraView.slice(1)}`;
     cameraToggle.dataset.cameraView = cameraView;
     cameraToggle.title = `Camera: ${label} view`;

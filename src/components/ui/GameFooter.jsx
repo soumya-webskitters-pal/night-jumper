@@ -6,7 +6,6 @@ export default function GameFooter() {
         <div className="control"><kbd>↓</kbd><span>Roll / swipe down</span></div>
         <div className="control super-jump-control"><kbd>×2</kbd><span>Super jump</span></div>
       </div>
-      <p id="statusText" className="status">First obstacle in 5 seconds</p>
       <div className="mobile-controls" aria-label="Game controls">
         <button id="jumpControl" className="mobile-control" type="button">
           <span aria-hidden="true">↑</span> Jump

@@ -30,3 +30,25 @@ Changed files:
 - `src/styles/hud.css`
 - `src/styles/responsive.css`
 - `src/styles/themes.css`
+## v1.3.0 — 2026-07-31T11:18:00.833Z
+
+Type: minor
+
+Changed files:
+- `public/backgound.png`
+- `src/components/ui/GameFooter.jsx`
+- `src/game/atmosphereEffects.js`
+- `src/game/buildingSpiderWebs.js`
+- `src/game/cameraController.js`
+- `src/game/cameraViewSky.js`
+- `src/game/celestialShaders.js`
+- `src/game/cityGround.js`
+- `src/game/daySun.js`
+- `src/game/directionalCameraFog.js`
+- `src/game/engine.js`
+- `src/game/loopingCityBackground.js`
+- `src/game/nearRoadBuildings.js`
+- `src/game/nightMoon.js`
+- `src/game/obstacleSpawner.js`
+- `src/game/themeTransitionController.js`
+- `src/game/worldGeneration.js`
