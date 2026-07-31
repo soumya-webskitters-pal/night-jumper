@@ -1,0 +1,11 @@
+Model Information:
+* title:	hello_neighbor_nicky_roth_ for release run
+* source:	https://sketchfab.com/3d-models/hello-neighbor-nicky-roth--for-release-run-c3761d5d74c04fbd9a891cf2428512db
+* author:	kingstonalexander1980 (https://sketchfab.com/kingstonalexander1980)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "hello_neighbor_nicky_roth_ for release run" (https://sketchfab.com/3d-models/hello-neighbor-nicky-roth--for-release-run-c3761d5d74c04fbd9a891cf2428512db) by kingstonalexander1980 (https://sketchfab.com/kingstonalexander1980) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

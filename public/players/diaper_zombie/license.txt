@@ -1,0 +1,11 @@
+Model Information:
+* title:	Diaper Zombie(run)
+* source:	https://sketchfab.com/3d-models/diaper-zombierun-0f142eaa4ab94740ba9e5d074f306a15
+* author:	James.Driessche (https://sketchfab.com/James.Driessche)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Diaper Zombie(run)" (https://sketchfab.com/3d-models/diaper-zombierun-0f142eaa4ab94740ba9e5d074f306a15) by James.Driessche (https://sketchfab.com/James.Driessche) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

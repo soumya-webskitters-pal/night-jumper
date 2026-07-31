@@ -1,0 +1,11 @@
+Model Information:
+* title:	Neon Runner Animations Set
+* source:	https://sketchfab.com/3d-models/neon-runner-animations-set-64d33abd6ee74291ad6772eede20bcd2
+* author:	Guso (https://sketchfab.com/Guso)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Neon Runner Animations Set" (https://sketchfab.com/3d-models/neon-runner-animations-set-64d33abd6ee74291ad6772eede20bcd2) by Guso (https://sketchfab.com/Guso) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

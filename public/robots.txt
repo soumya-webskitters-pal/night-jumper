@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://imaginative-blini-3595a1.netlify.app/sitemap.xml

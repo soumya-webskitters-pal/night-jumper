@@ -1,0 +1,11 @@
+Model Information:
+* title:	ANIMATIONS Sonic - Sonic Runners Adventure Model
+* source:	https://sketchfab.com/3d-models/animations-sonic-sonic-runners-adventure-model-fda871314b2642c6b5fdcab05b0275c1
+* author:	clwent (https://sketchfab.com/davetehhedgehog)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "ANIMATIONS Sonic - Sonic Runners Adventure Model" (https://sketchfab.com/3d-models/animations-sonic-sonic-runners-adventure-model-fda871314b2642c6b5fdcab05b0275c1) by clwent (https://sketchfab.com/davetehhedgehog) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

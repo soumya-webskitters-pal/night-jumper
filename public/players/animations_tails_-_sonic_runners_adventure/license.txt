@@ -1,0 +1,11 @@
+Model Information:
+* title:	ANIMATIONS Tails - Sonic Runners Adventure
+* source:	https://sketchfab.com/3d-models/animations-tails-sonic-runners-adventure-5c7f44d0b3454b36bdeaf7c58d15ef62
+* author:	clwent (https://sketchfab.com/davetehhedgehog)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "ANIMATIONS Tails - Sonic Runners Adventure" (https://sketchfab.com/3d-models/animations-tails-sonic-runners-adventure-5c7f44d0b3454b36bdeaf7c58d15ef62) by clwent (https://sketchfab.com/davetehhedgehog) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

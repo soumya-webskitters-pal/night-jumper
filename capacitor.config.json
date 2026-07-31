@@ -1,0 +1,9 @@
+{
+  "appId": "com.soumyapal.nightrunner",
+  "appName": "Night Runner",
+  "webDir": "dist",
+  "backgroundColor": "#010805",
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Run Forrest
+* source:	https://sketchfab.com/3d-models/run-forrest-74b3d04e41574ca3add381966a2678ad
+* author:	jabrils (https://sketchfab.com/SEFDStuff)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Run Forrest" (https://sketchfab.com/3d-models/run-forrest-74b3d04e41574ca3add381966a2678ad) by jabrils (https://sketchfab.com/SEFDStuff) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
