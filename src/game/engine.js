@@ -12,6 +12,10 @@ import {
 import { createObstacleFactory } from "./obstacleFactory";
 import { createObstacleSpawner } from "./obstacleSpawner";
 import { runnerAnimationTimeScale } from "./runnerAnimationController";
+import { createGameState, resetGameState } from "./gameState";
+import { createScoreController } from "./scoreController";
+import { createCountdownController } from "./countdownController";
+import { createPlayerMovementController } from "./playerMovementController";
 
 export function startJumper3D(
   THREE,
@@ -85,24 +89,7 @@ export function startJumper3D(
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
 
-  const state = {
-    running: false,
-    playerReady: false,
-    obstaclesReady: false,
-    gameOver: false,
-    score: 0,
-    highScore: 0,
-    scoreClock: 0,
-    survivalTime: 0,
-    spawnTimer: 5,
-    hasSpawned: false,
-    jumping: false,
-    jumpTime: 0,
-    jumpBoosted: false,
-    ducking: false,
-    rollTime: 0,
-    obstacles: [],
-  };
+  const state = createGameState();
 
   const clock = new THREE.Clock();
   const neonMaterials = [];
@@ -119,9 +106,6 @@ export function startJumper3D(
   let jumpAction = null;
   let superJumpAction = null;
   let activePlayerAction = null;
-  let displayedScore = 0;
-  let scoreDatabasePromise = null;
-  let highScoreLoaded = false;
   let fpsFrameCount = 0;
   let fpsSampleStarted = performance.now();
   let graphicsQuality = "high";
@@ -146,7 +130,6 @@ export function startJumper3D(
   let lastStatusMessage = "";
   let visualFrame = 0;
   let effectTravel = 0;
-  let countdownTimer = null;
 
   const audio = createAudioController(() => state.running);
   const ensureAudio = audio.ensure;
@@ -163,64 +146,38 @@ export function startJumper3D(
     factory: obstacleFactory,
     nextSpawnDelay,
   });
+  const scoreController = createScoreController({
+    gsap,
+    state,
+    scoreValue,
+    highScoreValue,
+    finalScoreValue,
+  });
+  const loadHighScore = scoreController.loadHighScore;
+  const updateScoreDisplay = scoreController.updateDisplay;
+  const animateFinalScore = scoreController.animateFinal;
+  const countdownController = createCountdownController({
+    state,
+    overlay: countdownOverlay,
+    label: countdownLabel,
+    value: countdownValue,
+    isReady: () => state.playerReady && state.obstaclesReady,
+    onPause: () => {
+      setDuck(false);
+      playPlayerAction(idleAction || runAction);
+    },
+    onStart: () => {
+      playPlayerAction(runAction || idleAction);
+      clock.getDelta();
+    },
+  });
+  const cancelCountdown = countdownController.cancel;
+  const beginCountdown = countdownController.begin;
 
   function setStatus(message) {
     if (message === lastStatusMessage) return;
     lastStatusMessage = message;
     statusText.textContent = message;
-  }
-
-  function cancelCountdown() {
-    if (countdownTimer !== null) {
-      window.clearTimeout(countdownTimer);
-      countdownTimer = null;
-    }
-    countdownOverlay.hidden = true;
-    countdownOverlay.classList.remove("is-counting");
-  }
-
-  function showCountdownStep(label, value) {
-    countdownLabel.textContent = label;
-    countdownValue.textContent = value;
-    countdownValue.classList.remove("is-pulsing");
-    void countdownValue.offsetWidth;
-    countdownValue.classList.add("is-pulsing");
-  }
-
-  function beginCountdown() {
-    cancelCountdown();
-    if (state.gameOver || !state.playerReady || !state.obstaclesReady) return;
-
-    state.running = false;
-    setDuck(false);
-    playPlayerAction(idleAction || runAction);
-    countdownOverlay.hidden = false;
-    countdownOverlay.classList.add("is-counting");
-
-    const steps = [
-      ["Get ready", "Ready?", 800],
-      ["Starting in", "3", 700],
-      ["Starting in", "2", 700],
-      ["Starting in", "1", 700],
-    ];
-    let stepIndex = 0;
-
-    const advance = () => {
-      if (stepIndex >= steps.length) {
-        cancelCountdown();
-        if (state.gameOver) return;
-        state.running = true;
-        playPlayerAction(runAction || idleAction);
-        clock.getDelta();
-        return;
-      }
-      const [label, value, duration] = steps[stepIndex];
-      stepIndex += 1;
-      showCountdownStep(label, value);
-      countdownTimer = window.setTimeout(advance, duration);
-    };
-
-    advance();
   }
 
   function openGameGuide() {
@@ -293,80 +250,6 @@ export function startJumper3D(
         openGameGuide();
       }
     }, remaining);
-  }
-
-  function openScoreDatabase() {
-    if (scoreDatabasePromise) return scoreDatabasePromise;
-    scoreDatabasePromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open("jumper-game", 1);
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains("scores")) {
-          database.createObjectStore("scores");
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    return scoreDatabasePromise;
-  }
-
-  async function loadHighScore() {
-    try {
-      const database = await openScoreDatabase();
-      const value = await new Promise((resolve, reject) => {
-        const transaction = database.transaction("scores", "readonly");
-        const request = transaction.objectStore("scores").get("highest");
-        request.onsuccess = () => resolve(Number(request.result) || 0);
-        request.onerror = () => reject(request.error);
-      });
-      state.highScore = value;
-      highScoreLoaded = true;
-      highScoreValue.textContent = String(state.highScore);
-      if (state.score > value) storeHighScore(state.score);
-    } catch (error) {
-      console.warn("Unable to load high score from IndexedDB", error);
-    }
-  }
-
-  async function storeHighScore(value) {
-    if (!highScoreLoaded || value <= state.highScore) return;
-    state.highScore = value;
-    highScoreValue.textContent = String(value);
-    try {
-      const database = await openScoreDatabase();
-      await new Promise((resolve, reject) => {
-        const transaction = database.transaction("scores", "readwrite");
-        transaction.objectStore("scores").put(value, "highest");
-        transaction.oncomplete = resolve;
-        transaction.onerror = () => reject(transaction.error);
-      });
-    } catch (error) {
-      console.warn("Unable to save high score to IndexedDB", error);
-    }
-  }
-
-  function updateScoreDisplay(value, force = false) {
-    if (!force && value === displayedScore) return;
-    displayedScore = value;
-    scoreValue.textContent = String(value);
-    scoreValue.classList.remove("score-spin");
-    void scoreValue.offsetWidth;
-    scoreValue.classList.add("score-spin");
-    storeHighScore(value);
-  }
-
-  function animateFinalScore(target) {
-    const counter = { value: 0 };
-    finalScoreValue.textContent = "0";
-    gsap.to(counter, {
-      value: target,
-      duration: Math.min(2.2, 0.8 + target * 0.018),
-      ease: "power3.out",
-      onUpdate: () => {
-        finalScoreValue.textContent = String(Math.round(counter.value));
-      },
-    });
   }
 
   const hemisphereLight = new THREE.HemisphereLight(
@@ -1091,96 +974,32 @@ export function startJumper3D(
   }
 
   const player = createPlayer();
+  const playerMovement = createPlayerMovementController({
+    gsap,
+    state,
+    player,
+    getActions: () => ({
+      idle: idleAction,
+      run: runAction,
+      roll: rollAction,
+      jump: jumpAction,
+      superJump: superJumpAction,
+    }),
+    getSelectedRunner: () => selectedRunner,
+    playAction: playPlayerAction,
+    playJumpSound,
+    playRollSound: playDuckSound,
+  });
+  const jump = playerMovement.jump;
+  const superJump = playerMovement.superJump;
+  const setDuck = playerMovement.setDuck;
+  const roll = playerMovement.roll;
+  const killPlayerTweens = playerMovement.killTweens;
   createWorld();
   setGraphicsQuality(initialGraphicsQuality(), false);
   setTheme(initialTheme(), false);
   loadObstacleModels();
   loadPlayerModel();
-
-  function killPlayerTweens() {
-    gsap.killTweensOf(player.position);
-    gsap.killTweensOf(player.scale);
-  }
-
-  function jump() {
-    if (!state.running) return;
-    if (state.jumping) {
-      if (!state.jumpBoosted && state.jumpTime <= 0.28) {
-        state.jumpBoosted = true;
-        playPlayerAction(
-          superJumpAction || jumpAction || runAction || idleAction,
-          0.08,
-        );
-        playJumpSound(true);
-      }
-      return;
-    }
-    killPlayerTweens();
-    state.ducking = false;
-    state.jumping = true;
-    state.jumpTime = 0;
-    state.jumpBoosted = false;
-    playJumpSound(false);
-    playPlayerAction(jumpAction || runAction || idleAction, 0.1);
-    player.scale.y = 1;
-    player.position.y = 0.08;
-    gsap
-      .timeline()
-      .to(player.scale, {
-        x: 0.96,
-        y: 1.06,
-        z: 0.96,
-        duration: 0.11,
-        ease: "power2.out",
-      })
-      .to(player.scale, {
-        x: 1,
-        y: 1,
-        z: 1,
-        duration: 0.16,
-        ease: "power2.inOut",
-      });
-  }
-
-  function superJump() {
-    if (!state.running) return;
-    if (!state.jumping) jump();
-    if (!state.jumpBoosted) {
-      state.jumpBoosted = true;
-      playPlayerAction(
-        superJumpAction || jumpAction || runAction || idleAction,
-        0.08,
-      );
-      playJumpSound(true);
-    }
-  }
-
-  function setDuck(pressed) {
-    if (!state.running || state.jumping) return;
-    if (pressed === state.ducking) return;
-    state.ducking = pressed;
-    if (pressed) playDuckSound();
-    playPlayerAction(
-      pressed ? rollAction || runAction || idleAction : runAction || idleAction,
-      0.12,
-    );
-    const preserveAnimatedRollShape =
-      selectedRunner === "tron" || selectedRunner === "spiderman";
-    gsap.to(player.scale, {
-      x: pressed && !preserveAnimatedRollShape ? 1.12 : 1,
-      y: pressed && !preserveAnimatedRollShape ? 0.5 : 1,
-      z: pressed && !preserveAnimatedRollShape ? 1.12 : 1,
-      duration: pressed ? 0.16 : 0.24,
-      ease: pressed ? "power3.out" : "back.out(1.8)",
-      overwrite: "auto",
-    });
-  }
-
-  function roll() {
-    if (!state.running || state.jumping) return;
-    state.rollTime = 0.72;
-    setDuck(true);
-  }
 
   function collide() {
     cancelCountdown();
@@ -1222,21 +1041,7 @@ export function startJumper3D(
     cancelCountdown();
     killPlayerTweens();
     clearObstacles();
-    Object.assign(state, {
-      running: false,
-      playerReady: true,
-      gameOver: false,
-      score: 0,
-      scoreClock: 0,
-      survivalTime: 0,
-      spawnTimer: 5,
-      hasSpawned: false,
-      jumping: false,
-      jumpTime: 0,
-      jumpBoosted: false,
-      ducking: false,
-      rollTime: 0,
-    });
+    resetGameState(state);
     effectTravel = 0;
     player.position.y = 0;
     player.scale.set(1, 1, 1);

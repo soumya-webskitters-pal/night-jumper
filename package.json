@@ -1,12 +1,14 @@
 {
   "name": "night-runner",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "version:setup": "git config core.hooksPath .githooks",
+    "version:status": "node scripts/version-manager.mjs --status",
     "android:sync": "npm run build && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },

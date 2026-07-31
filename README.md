@@ -1,61 +1,153 @@
 # Night Runner
 
-A neon endless runner built with Three.js. Run through a dark futuristic city, jump over barriers, roll beneath flying obstacles, and chase your highest score.
+Night Runner is a responsive neon endless-runner game built with React and
+Three.js. Run through a procedural city, avoid themed obstacles, switch camera
+angles, and chase a persistent high score.
 
 ## Play
 
-[Play Night Runner on Netlify](night-jumper.netlify.app)
+[Play Night Runner on Netlify](https://night-jumper.netlify.app)
 
-## Game controls
+## Controls
 
-| Action | Control |
-| --- | --- |
-| Jump | Click, tap, swipe up, or press `Space` / `↑` |
-| Super jump | Double-click, double-tap, double-swipe up, or rapidly press `↑` twice |
-| Roll | Right-click, swipe down, press `↓`, or tap the Roll button |
+| Action | Desktop | Mobile |
+| --- | --- | --- |
+| Jump | Click, `Space`, or `↑` | Tap, swipe up, or Jump button |
+| Super jump | Double-click or rapidly press `↑` twice | Double-tap, double-swipe up, or Super button |
+| Roll | Right-click or `↓` | Swipe down or Roll button |
+
+The game displays a Ready prompt and a `3 → 2 → 1` countdown before every run.
 
 ## Runners
 
-Choose a runner before starting or change characters during the game:
-
-- Tron Legend — default neon runner
+- Tron Legend
 - Sonic Blue
 - Sonic Yellow
+- Spider-Man
 - Nicky
 - Cha Cha
 - Diaper Zombie
 
-Only the default runner model loads during startup. Other 3D character models load when selected, while their lightweight preview images load with the page.
+Runner previews load with the interface. Full animated 3D models load only when
+selected. The selection window supports responsive Grid and List layouts.
 
 ## Features
 
-- Animated 3D runner models
-- Increasing game speed and difficulty
-- Normal and super jumps
-- Ground and flying obstacles
-- Character-selection menu
+- Normal jump, super jump, and one-tap roll
+- Side, front, and back camera views
+- Night, Day, and Spider-Man visual themes
+- Procedural wooden hurdles and textured metal boxes
+- Instanced floating soccer-goal obstacles with shader-based nets
+- Random obstacle selection and adaptive spawn timing
 - Low and High graphics modes
-- Adaptive resolution in Low graphics mode
-- Background music and gameplay sound effects
-- Sound toggle
-- Current and highest scores
-- Highest-score persistence with IndexedDB
-- Live FPS meter
-- Responsive controls and menus
-- Neon particles, speed lines, shadows, and visual effects
+- Adaptive pixel ratio in Low graphics mode
+- GPU-assisted city, particle, and speed-line effects
+- Animated character selection with loading overlay
+- Pause-aware settings, guide, and About popups
+- Persistent high scores using IndexedDB
+- Responsive HUD and mobile gameplay controls
+- Automatic commit-based version management
+- Android APK support through Capacitor
 
 ## Run locally
 
+Requirements:
+
+- Node.js
+- npm
+
 ```bash
-cd /path/to/night_runner
+git clone https://github.com/soumya-webskitters-pal/night-jumper.git
+cd night-jumper
 npm install
+npm run version:setup
 npm run dev
 ```
 
-Create a production build with:
+Open [http://localhost:5173](http://localhost:5173).
+
+## Production build
 
 ```bash
 npm run build
+npm run preview
+```
+
+## Android
+
+Synchronize the web build with the Android project:
+
+```bash
+npm run android:sync
+```
+
+Create a debug APK:
+
+```bash
+npm run android:apk
+```
+
+## Version management
+
+The current release version is read from `package.json` and displayed in the
+About popup.
+
+After running `npm run version:setup`, each commit updates the version and logs
+the changed files in `VERSION_HISTORY.md`.
+
+- Normal commits increment the minor version: `1.0.0 → 1.1.0`
+- Breaking commits increment the major version: `1.x.x → 2.0.0`
+
+Create a major release with:
+
+```bash
+VERSION_BUMP=major git commit -m "feat!: describe the breaking change"
+```
+
+Check the next calculated versions with:
+
+```bash
+npm run version:status
+```
+
+See [VERSIONING.md](./VERSIONING.md) for complete details.
+
+## Architecture
+
+New features are implemented as focused components or modules. The main engine
+coordinates them without owning their internal behavior.
+
+```text
+src/
+├── components/
+│   ├── GameCanvas.jsx
+│   └── ui/
+│       ├── settings and About components
+│       ├── runner-selection components
+│       └── HUD, guide, loader, and countdown components
+├── data/
+│   └── runners.js
+├── game/
+│   ├── audioController.js
+│   ├── cameraController.js
+│   ├── collisionSystem.js
+│   ├── countdownController.js
+│   ├── gameState.js
+│   ├── inputController.js
+│   ├── obstacleFactory.js
+│   ├── obstacleSpawner.js
+│   ├── playerMovementController.js
+│   ├── runnerAnimationController.js
+│   ├── scoreController.js
+│   ├── worldGeneration.js
+│   └── engine.js
+└── styles/
+    ├── about.css
+    ├── controls.css
+    ├── dialogs.css
+    ├── hud.css
+    ├── responsive.css
+    └── themes.css
 ```
 
 ## Technology
@@ -64,34 +156,15 @@ npm run build
 - React Three Fiber
 - Three.js
 - GSAP
-- HTML5
-- CSS3
-- JavaScript
+- Vite
 - IndexedDB
+- Capacitor
 - Netlify
-
-## Project structure
-
-```text
-.
-├── src/
-│   ├── components/
-│   ├── game/
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── style.css
-├── public/
-│   ├── players/
-│   └── obstacles/
-├── index.html
-├── package.json
-└── vite.config.js
-```
 
 ## Credits
 
-Created by ChatGPT.  
-Hosted by Netlify. 
-Vibe coder: **Soumya Pal**.
+Vibe coder: **Soumya Pal**  
+Created with **Codex**
 
-3D models and related assets retain the licensing terms included in their respective asset folders.
+3D models and related assets retain the licensing terms included with their
+respective source assets.
