@@ -34,13 +34,17 @@ selected. The selection window supports responsive Grid and List layouts.
 ## Features
 
 - Normal jump, super jump, and one-tap roll
-- Side, front, and back camera views
+- Side, front, and back camera views with smooth animated transitions
 - Night, Day, and Spider-Man visual themes
+- Shader-animated sun, moon, corona, craters, and themed sky
+- Infinite scrolling image skyline behind camera-aware 3D building rows
+- Dense lightweight gradient fog hiding front/back horizon cutoffs
+- Building-mounted Spider-Man webs that move with the city
 - Procedural wooden hurdles and textured metal boxes
 - Instanced floating soccer-goal obstacles with shader-based nets
 - Random obstacle selection and adaptive spawn timing
 - Low and High graphics modes
-- Adaptive pixel ratio in Low graphics mode
+- Adaptive pixel ratio, flat buildings, and disabled shadows in Low mode
 - GPU-assisted city, particle, and speed-line effects
 - Animated character selection with loading overlay
 - Pause-aware settings, guide, and About popups
@@ -129,16 +133,27 @@ src/
 │   └── runners.js
 ├── game/
 │   ├── audioController.js
+│   ├── atmosphereEffects.js
+│   ├── buildingSpiderWebs.js
 │   ├── cameraController.js
+│   ├── cameraViewSky.js
+│   ├── celestialShaders.js
+│   ├── cityGround.js
 │   ├── collisionSystem.js
 │   ├── countdownController.js
+│   ├── daySun.js
+│   ├── directionalCameraFog.js
 │   ├── gameState.js
 │   ├── inputController.js
+│   ├── loopingCityBackground.js
+│   ├── nearRoadBuildings.js
+│   ├── nightMoon.js
 │   ├── obstacleFactory.js
 │   ├── obstacleSpawner.js
 │   ├── playerMovementController.js
 │   ├── runnerAnimationController.js
 │   ├── scoreController.js
+│   ├── themeTransitionController.js
 │   ├── worldGeneration.js
 │   └── engine.js
 └── styles/

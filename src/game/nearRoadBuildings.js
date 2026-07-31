@@ -45,7 +45,10 @@ export function createNearRoadBuildings(THREE, scene) {
       building.userData.dayColor = new THREE.Color(0x3f4a47);
       building.userData.spiderColor = new THREE.Color(index % 2 ? 0x24070d : 0x08102d);
       building.userData.litMaterial = litMaterial;
-      building.userData.flatMaterial = new THREE.MeshBasicMaterial({ color: litMaterial.color.clone() });
+      building.userData.flatMaterial = new THREE.MeshBasicMaterial({
+        color: litMaterial.color.clone(),
+        toneMapped: true,
+      });
       block.add(building);
 
       const windowMaterial = new THREE.MeshBasicMaterial({

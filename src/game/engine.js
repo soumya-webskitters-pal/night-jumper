@@ -446,11 +446,13 @@ export function startJumper3D(
         : Math.min(window.devicePixelRatio || 1, adaptivePixelRatio),
     );
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = high;
+    renderer.shadowMap.autoUpdate = high;
+    renderer.shadowMap.needsUpdate = high;
     renderer.shadowMap.type = high
       ? THREE.PCFSoftShadowMap
       : THREE.PCFShadowMap;
-    moonLight.castShadow = true;
+    moonLight.castShadow = high;
     moonLight.shadow.mapSize.set(high ? 2048 : 1024, high ? 2048 : 1024);
 
     if (speedParticles) speedParticles.visible = true;
@@ -1138,7 +1140,6 @@ export function startJumper3D(
     const delta = Math.min(clock.getDelta(), 0.04);
     const elapsed = clock.elapsedTime;
     atmosphereEffects.update(elapsed);
-    directionalCameraFog.update(elapsed);
     daySun.update(elapsed);
     nightMoon.update(elapsed);
     loopingCityBackground.update(delta, gameSpeed(), state.running);
@@ -1241,13 +1242,17 @@ export function startJumper3D(
     aboutWasRunning = false;
     if (shouldResume) beginCountdown();
   });
-  cameraToggle.addEventListener("click", () => {
-    const cameraView = cameraController.cycle();
+  function applyCameraViewEffects(cameraView) {
     nearRoadCity?.setCameraView(cameraView);
     loopingCityBackground.setCameraView(cameraView);
     atmosphereEffects.setCameraView(cameraView);
     cameraViewSky.setCameraView(cameraView);
     directionalCameraFog.setCameraView(cameraView);
+  }
+
+  cameraToggle.addEventListener("click", () => {
+    const cameraView = cameraController.cycle();
+    applyCameraViewEffects(cameraView);
     const label = `${cameraView[0].toUpperCase()}${cameraView.slice(1)}`;
     cameraToggle.dataset.cameraView = cameraView;
     cameraToggle.title = `Camera: ${label} view`;

@@ -52,3 +52,13 @@ Changed files:
 - `src/game/obstacleSpawner.js`
 - `src/game/themeTransitionController.js`
 - `src/game/worldGeneration.js`
+## v1.4.0 — 2026-07-31T11:37:16.510Z
+
+Type: minor
+
+Changed files:
+- `README.md`
+- `src/game/cameraController.js`
+- `src/game/directionalCameraFog.js`
+- `src/game/engine.js`
+- `src/game/nearRoadBuildings.js`

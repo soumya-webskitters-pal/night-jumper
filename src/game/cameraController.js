@@ -3,6 +3,7 @@ const CAMERA_VIEWS = ["side", "back", "front"];
 export function createCameraController(THREE, camera) {
   let view = "side";
   let baseY = 5.1;
+  let transition = null;
   const target = new THREE.Vector3(-0.8, 1.55, -1.2);
 
   function apply() {
@@ -34,17 +35,67 @@ export function createCameraController(THREE, camera) {
   }
 
   function cycle() {
+    const startPosition = camera.position.clone();
+    const startTarget = target.clone();
+    const startFov = camera.fov;
     view = CAMERA_VIEWS[(CAMERA_VIEWS.indexOf(view) + 1) % CAMERA_VIEWS.length];
     apply();
+    const endPosition = camera.position.clone();
+    const endTarget = target.clone();
+    const endFov = camera.fov;
+    camera.position.copy(startPosition);
+    target.copy(startTarget);
+    camera.fov = startFov;
+    camera.updateProjectionMatrix();
+    camera.lookAt(target);
+    transition = {
+      duration: 0.78,
+      endFov,
+      endPosition,
+      endTarget,
+      startFov,
+      startedAt: null,
+      startPosition,
+      startTarget,
+    };
     return view;
   }
 
   function update(elapsed) {
+    if (transition) {
+      if (transition.startedAt === null) transition.startedAt = elapsed;
+      const rawProgress = Math.min(
+        1,
+        (elapsed - transition.startedAt) / transition.duration,
+      );
+      const progress = rawProgress * rawProgress * (3 - 2 * rawProgress);
+      camera.position.lerpVectors(
+        transition.startPosition,
+        transition.endPosition,
+        progress,
+      );
+      camera.position.y += Math.sin(progress * Math.PI) * 0.85;
+      target.lerpVectors(
+        transition.startTarget,
+        transition.endTarget,
+        progress,
+      );
+      camera.fov = THREE.MathUtils.lerp(
+        transition.startFov,
+        transition.endFov,
+        progress,
+      );
+      camera.updateProjectionMatrix();
+      camera.lookAt(target);
+      if (rawProgress >= 1) transition = null;
+      return;
+    }
     camera.position.y = baseY + Math.sin(elapsed * 0.45) * 0.06;
     camera.lookAt(target);
   }
 
   function resize() {
+    transition = null;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     apply();
