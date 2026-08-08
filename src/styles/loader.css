@@ -1,19 +1,46 @@
 .loader-screen {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 9999;
   display: grid;
   place-content: center;
   justify-items: center;
   color: #dfffea;
   background:
-    radial-gradient(circle at center, rgba(20, 75, 43, 0.34), transparent 34%),
-    #020806;
+    radial-gradient(circle at center, rgba(2, 8, 6, 0.2), rgba(2, 8, 6, 0.8)),
+    url('/loader_desktop.webp') no-repeat center center / cover;
   opacity: 1;
   visibility: visible;
   transition:
     opacity 0.55s ease,
     visibility 0.55s ease;
+}
+
+.loader-screen img {
+  max-width: clamp(180px, 30vw, 320px);
+  height: auto;
+  margin-bottom: 24px;
+  filter: drop-shadow(0 0 15px rgba(98, 255, 158, 0.4));
+  animation: logo-float 3s ease-in-out infinite alternate;
+}
+
+@keyframes logo-float {
+  from {
+    transform: translateY(0);
+    filter: drop-shadow(0 0 15px rgba(98, 255, 158, 0.4));
+  }
+  to {
+    transform: translateY(-8px);
+    filter: drop-shadow(0 0 25px rgba(98, 255, 158, 0.7));
+  }
+}
+
+@media (max-width: 768px) {
+  .loader-screen {
+    background:
+      radial-gradient(circle at center, rgba(2, 8, 6, 0.2), rgba(2, 8, 6, 0.8)),
+      url('/loader_mobile.webp') no-repeat center center / cover;
+  }
 }
 
 .loader-screen.is-hidden {

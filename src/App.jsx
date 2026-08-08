@@ -1,5 +1,6 @@
 import GameCanvas from "./components/GameCanvas";
 import CountdownOverlay from "./components/ui/CountdownOverlay";
+import FirstRunCoach from "./components/ui/FirstRunCoach";
 import GameFooter from "./components/ui/GameFooter";
 import GameGuide from "./components/ui/GameGuide";
 import GameMeta from "./components/ui/GameMeta";
@@ -18,6 +19,7 @@ export default function App() {
       <main className="hud">
         <Hero />
         <CountdownOverlay />
+        <FirstRunCoach />
         <aside className="hud-cluster" aria-label="Game information and settings">
           <ScoreCard />
           <HudActions />

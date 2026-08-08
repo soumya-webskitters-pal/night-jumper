@@ -6,6 +6,7 @@ export function createCountdownController({
   isReady,
   onPause,
   onStart,
+  onTick,
 }) {
   let timer = null;
 
@@ -24,6 +25,9 @@ export function createCountdownController({
     value.classList.remove("is-pulsing");
     void value.offsetWidth;
     value.classList.add("is-pulsing");
+    if (onTick) {
+      onTick(nextValue);
+    }
   }
 
   function begin() {

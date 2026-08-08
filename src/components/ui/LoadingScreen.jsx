@@ -6,8 +6,8 @@ export default function LoadingScreen() {
         <span />
         <span />
       </div>
-      <strong>Loading Night Runner</strong>
-      <p>Preparing runner and obstacles…</p>
+      <strong>Loading</strong>
+      <p>Preparing assets…</p>
     </div>
   );
 }

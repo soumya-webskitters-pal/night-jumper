@@ -10,3 +10,7 @@ dist/
 
 # Generated install packages
 *.apk
+
+# Logs
+*.log
+

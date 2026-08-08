@@ -62,6 +62,9 @@ export function startJumper3D(
   const jumpControl = document.querySelector("#jumpControl");
   const superJumpControl = document.querySelector("#superJumpControl");
   const rollControl = document.querySelector("#rollControl");
+  const firstRunCoach = document.querySelector("#firstRunCoach");
+  const coachTitle = document.querySelector("#coachTitle");
+  const coachHint = document.querySelector("#coachHint");
 
   const scene = runtime.scene || new THREE.Scene();
   scene.background = new THREE.Color(0x030706);
@@ -138,6 +141,8 @@ export function startJumper3D(
   let aboutWasRunning = false;
   let settingsWasRunning = false;
   let aboutDialogOpen = false;
+  let soundDialogOpen = false;
+  let soundWasRunning = false;
   let runnerSelectionShown = false;
   let selectedRunner = "tron";
   let playerModel = null;
@@ -148,8 +153,30 @@ export function startJumper3D(
   let lastStatusMessage = "";
   let visualFrame = 0;
   let effectTravel = 0;
+  const firstRunCoachKey = "night-runner-first-run-coach-complete";
+  let firstRunTraining = !localStorage.getItem(firstRunCoachKey);
+  let coachStep = 0;
+  let coachTimer = 0;
+  let coachOpeningTimer = firstRunTraining ? 1 : 0;
+
+  function showCoach(step, title, hint, duration = 3.2) {
+    if (!firstRunTraining || !firstRunCoach) return;
+    coachTitle.textContent = title;
+    coachHint.textContent = hint;
+    firstRunCoach.dataset.step = String(step);
+    firstRunCoach.hidden = false;
+    coachTimer = duration;
+  }
+
+  function completeFirstRunTraining() {
+    localStorage.setItem(firstRunCoachKey, "true");
+    firstRunTraining = false;
+    coachTimer = 0;
+    if (firstRunCoach) firstRunCoach.hidden = true;
+  }
 
   const audio = createAudioController(() => state.running);
+  window.gameAudio = audio;
   const ensureAudio = audio.ensure;
   const playJumpSound = audio.playJump;
   const playDuckSound = audio.playRoll;
@@ -189,6 +216,11 @@ export function startJumper3D(
       playPlayerAction(runAction || idleAction);
       clock.getDelta();
     },
+    onTick: (nextValue) => {
+      if (nextValue === "3" || nextValue === "2" || nextValue === "1") {
+        audio.playCountdownTick(nextValue);
+      }
+    },
   });
   const cancelCountdown = countdownController.cancel;
   const beginCountdown = countdownController.begin;
@@ -215,6 +247,7 @@ export function startJumper3D(
   function closeGameGuide() {
     if (gameGuide.hidden) return;
     gameGuide.hidden = true;
+    localStorage.setItem("night-runner-guide-shown", "true");
     guideToggle.setAttribute("aria-expanded", "false");
     if (!runnerSelectionShown && !state.gameOver) {
       runnerSelectionShown = true;
@@ -261,12 +294,21 @@ export function startJumper3D(
     window.setTimeout(() => {
       loaderScreen.classList.add("is-hidden");
       loaderScreen.setAttribute("aria-hidden", "true");
+      if (canvas) {
+        canvas.classList.add("is-visible");
+      }
+      audio.setRunner(selectedRunner);
       if (!state.gameOver) {
         state.running = false;
         playPlayerAction(idleAction || runAction);
         setStatus("First obstacle in 5 seconds");
         clock.getDelta();
-        openGameGuide();
+        if (localStorage.getItem("night-runner-guide-shown")) {
+          runnerSelectionShown = true;
+          openRunnerSelect();
+        } else {
+          openGameGuide();
+        }
       }
     }, remaining);
   }
@@ -888,6 +930,7 @@ export function startJumper3D(
 
         playPlayerAction(idleAction || runAction, 0);
         selectedRunner = runnerId;
+        audio.setRunner(runnerId);
         applyRunnerTheme(runnerId);
         state.playerReady = true;
         setStatus("Get ready");
@@ -1001,11 +1044,39 @@ export function startJumper3D(
     updateScoreDisplay(0, true);
     setStatus("First obstacle in 5 seconds");
     playPlayerAction(idleAction || runAction);
+    audio.playRestart();
+    if (firstRunTraining) {
+      coachStep = 0;
+      coachTimer = 0;
+      coachOpeningTimer = 1;
+    }
     beginCountdown();
   }
 
   function updateGame(delta, elapsed) {
     if (!state.running) return;
+
+    if (firstRunTraining) {
+      if (coachOpeningTimer > 0) {
+        coachOpeningTimer -= delta;
+        if (coachOpeningTimer <= 0) {
+          coachStep = 1;
+          showCoach(1, "1. Normal jump", "Jump over low barriers: press ↑, tap the screen, or use Jump.");
+        }
+      }
+      if (coachTimer > 0) {
+        coachTimer -= delta * 3;
+        if (coachTimer <= 0 && coachStep === 1) {
+          coachStep = 2;
+          showCoach(2, "2. Roll", "Roll below high obstacles: press ↓, swipe down, or use Roll.");
+        } else if (coachTimer <= 0 && coachStep === 2) {
+          coachStep = 3;
+          showCoach(3, "3. Super jump", "For extra height, double-tap or press ↑ twice quickly.");
+        } else if (coachTimer <= 0 && coachStep === 3) {
+          completeFirstRunTraining();
+        }
+      }
+    }
 
     state.survivalTime += delta;
     state.scoreClock += delta;
@@ -1062,8 +1133,10 @@ export function startJumper3D(
       state.scoreClock -= 1;
     }
 
-    state.spawnTimer -= delta;
-    if (state.spawnTimer <= 0) spawnObstacle();
+    if (!firstRunTraining) {
+      state.spawnTimer -= delta;
+      if (state.spawnTimer <= 0) spawnObstacle();
+    }
 
     const worldSpeed = gameSpeed();
     effectTravel += worldSpeed * delta;
@@ -1138,19 +1211,20 @@ export function startJumper3D(
     }
 
     const delta = Math.min(clock.getDelta(), 0.04);
+    const gameplayDelta = firstRunTraining && state.running ? delta * 0.32 : delta;
     const elapsed = clock.elapsedTime;
     atmosphereEffects.update(elapsed);
     daySun.update(elapsed);
     nightMoon.update(elapsed);
-    loopingCityBackground.update(delta, gameSpeed(), state.running);
-    updateGame(delta, elapsed);
+    loopingCityBackground.update(gameplayDelta, gameSpeed(), state.running);
+    updateGame(gameplayDelta, elapsed);
 
     if (runAction && activePlayerAction === runAction && state.running) {
       runAction.timeScale = Math.min(2.3, gameSpeed() / 5.8);
     }
     if (playerMixer) {
       playerMixer.timeScale = runnerAnimationTimeScale(selectedRunner, state);
-      playerMixer.update(delta);
+      playerMixer.update(gameplayDelta);
     }
 
     if (stars?.visible) stars.rotation.y = elapsed * 0.003;
@@ -1215,7 +1289,7 @@ export function startJumper3D(
   });
   window.addEventListener("night-runner:settings-close", () => {
     window.setTimeout(() => {
-      if (aboutDialogOpen) {
+      if (aboutDialogOpen || soundDialogOpen) {
         settingsWasRunning = false;
         return;
       }
@@ -1240,6 +1314,20 @@ export function startJumper3D(
     aboutDialogOpen = false;
     const shouldResume = aboutWasRunning && !state.gameOver;
     aboutWasRunning = false;
+    if (shouldResume) beginCountdown();
+  });
+  window.addEventListener("night-runner:sound-open", () => {
+    soundDialogOpen = true;
+    soundWasRunning = state.running || settingsWasRunning;
+    cancelCountdown();
+    state.running = false;
+    setDuck(false);
+    playPlayerAction(idleAction || runAction);
+  });
+  window.addEventListener("night-runner:sound-close", () => {
+    soundDialogOpen = false;
+    const shouldResume = soundWasRunning && !state.gameOver;
+    soundWasRunning = false;
     if (shouldResume) beginCountdown();
   });
   function applyCameraViewEffects(cameraView) {
@@ -1301,6 +1389,25 @@ export function startJumper3D(
       closeGameGuide();
     }
   });
+  // Initialize sound toggle button UI state
+  const initialSoundEnabled = audio.isEnabled();
+  soundToggle.setAttribute("aria-pressed", String(initialSoundEnabled));
+  soundToggle.setAttribute(
+    "aria-label",
+    initialSoundEnabled ? "Mute sound" : "Enable sound",
+  );
+
+  // Resume/start audio on first user interaction to satisfy browser autoplay policies
+  const startAudioOnInteraction = () => {
+    audio.ensure();
+    window.removeEventListener("click", startAudioOnInteraction);
+    window.removeEventListener("touchstart", startAudioOnInteraction);
+    window.removeEventListener("keydown", startAudioOnInteraction);
+  };
+  window.addEventListener("click", startAudioOnInteraction);
+  window.addEventListener("touchstart", startAudioOnInteraction);
+  window.addEventListener("keydown", startAudioOnInteraction);
+
   soundToggle.addEventListener("click", () => {
     const soundEnabled = audio.toggle();
     soundToggle.setAttribute("aria-pressed", String(soundEnabled));
@@ -1318,6 +1425,24 @@ export function startJumper3D(
   themeToggle.addEventListener("click", () => {
     if (currentTheme === "spiderman") return;
     setTheme(currentTheme === "night" ? "day" : "night");
+  });
+
+  // Global interaction sound effects for menus and options
+  document.addEventListener("click", (event) => {
+    const target = event.target.closest("button, a");
+    if (target) {
+      audio.playClick();
+    }
+  });
+
+  document.addEventListener("mouseover", (event) => {
+    const target = event.target.closest("button, a");
+    if (!target) return;
+    // Ignore mouse transitions between child nodes within the same button/link
+    if (event.relatedTarget && target.contains(event.relatedTarget)) {
+      return;
+    }
+    audio.playHover();
   });
 
   loadHighScore();

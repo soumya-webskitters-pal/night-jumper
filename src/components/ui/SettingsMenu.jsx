@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import AboutModal from "./AboutModal";
 import GraphicsControls from "./GraphicsControls";
 import SettingsExitButton from "./SettingsExitButton";
+import SoundSettingsModal from "./SoundSettingsModal";
 
 export default function SettingsMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutPanel, setAboutPanel] = useState(null);
+  const [soundOpen, setSoundOpen] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -22,6 +24,10 @@ export default function SettingsMenu() {
   const openAbout = (panel) => {
     setMenuOpen(false);
     setAboutPanel(panel);
+  };
+  const openSound = () => {
+    setMenuOpen(false);
+    setSoundOpen(true);
   };
 
   return (
@@ -50,6 +56,13 @@ export default function SettingsMenu() {
           <span><strong>Tips</strong><small>How to play</small></span>
         </button>
         <GraphicsControls />
+        <button className="hud-menu-action" type="button"
+          onClick={openSound}>
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6Z" />
+          </svg>
+          <span><strong>Audio</strong><small>Sound settings</small></span>
+        </button>
         <div className="settings-about">
           <button className="hud-menu-action" type="button"
             onClick={() => openAbout("game")}>
@@ -69,6 +82,7 @@ export default function SettingsMenu() {
         <SettingsExitButton onExit={closeMenu} />
       </div>
       <AboutModal panel={aboutPanel} onClose={() => setAboutPanel(null)} />
+      <SoundSettingsModal isOpen={soundOpen} onClose={() => setSoundOpen(false)} />
     </div>
   );
 }
