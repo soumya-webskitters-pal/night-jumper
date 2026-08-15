@@ -14,3 +14,9 @@ dist/
 # Logs
 *.log
 
+# Local JDK
+/android/jdk17/
+/android/jdk21/
+
+
+
