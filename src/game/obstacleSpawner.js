@@ -24,5 +24,23 @@ export function createObstacleSpawner({
     return object;
   }
 
-  return { selectRandomObstacle, spawn };
+  function spawnTutorial(kind) {
+    const object = kind === "jump"
+      ? factory.createHurdle()
+      : kind === "superJump"
+        ? factory.createMetalBoxes({ boxCount: 2 })
+        : factory.createFloatingGoal();
+    // Tutorial obstacles appear at the action point so the prompt and the
+    // obstacle are introduced together while the world is paused.
+    object.position.set(0.2, object.position.y, 0);
+    object.userData.speedVariance = 0;
+    object.userData.scored = false;
+    object.userData.tutorial = true;
+    scene.add(object);
+    state.obstacles.push(object);
+    state.hasSpawned = true;
+    return object;
+  }
+
+  return { selectRandomObstacle, spawn, spawnTutorial };
 }

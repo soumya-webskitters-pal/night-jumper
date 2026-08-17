@@ -123,10 +123,10 @@ export function createObstacleFactory(THREE, renderer) {
     return group;
   }
 
-  function createMetalBoxes() {
+  function createMetalBoxes({ boxCount: forcedBoxCount } = {}) {
     const group = new THREE.Group();
     const obstacleMaterial = randomMaterial("box");
-    const boxCount = Math.random() < 0.45 ? 2 : 1;
+    const boxCount = forcedBoxCount ?? (Math.random() < 0.45 ? 2 : 1);
 
     for (let index = 0; index < boxCount; index += 1) {
       const width = 0.85 + Math.random() * 0.25;

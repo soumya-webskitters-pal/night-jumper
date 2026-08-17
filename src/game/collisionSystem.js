@@ -45,12 +45,14 @@ export function createCollisionSystem(THREE) {
       }
 
       if (playerBox.intersectsBox(obstacleBox)) {
-        onCollision();
-        return true;
+        if (!obstacle.userData.tutorialCleared) {
+          onCollision();
+          return true;
+        }
       }
       if (!obstacle.userData.scored && obstacleBox.max.x < playerBox.min.x) {
         obstacle.userData.scored = true;
-        state.score += 10;
+        if (!obstacle.userData.tutorial) state.score += 10;
       }
       if (obstacle.position.x < -13) {
         scene.remove(obstacle);

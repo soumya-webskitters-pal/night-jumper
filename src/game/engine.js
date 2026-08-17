@@ -63,6 +63,7 @@ export function startJumper3D(
   const superJumpControl = document.querySelector("#superJumpControl");
   const rollControl = document.querySelector("#rollControl");
   const firstRunCoach = document.querySelector("#firstRunCoach");
+  const coachArrow = document.querySelector("#coachArrow");
   const coachTitle = document.querySelector("#coachTitle");
   const coachHint = document.querySelector("#coachHint");
 
@@ -153,26 +154,49 @@ export function startJumper3D(
   let lastStatusMessage = "";
   let visualFrame = 0;
   let effectTravel = 0;
-  const firstRunCoachKey = "night-runner-first-run-coach-complete";
+  const firstRunCoachKey = "night-runner-interactive-training-v2-complete";
   let firstRunTraining = !localStorage.getItem(firstRunCoachKey);
   let coachStep = 0;
-  let coachTimer = 0;
-  let coachOpeningTimer = firstRunTraining ? 1 : 0;
+  let tutorialPaused = false;
+  let tutorialObstacle = null;
+  let tutorialSpawnDelay = 0;
+  const tutorialSteps = [
+    { action: "jump", title: "Jump!", hint: "Press ↑, Space, or tap", arrow: "↑" },
+    { action: "superJump", title: "Super jump!", hint: "Press ↑ twice or double-tap", arrow: "⇈" },
+    { action: "roll", title: "Roll!", hint: "Press ↓ or swipe down", arrow: "↓" },
+  ];
 
-  function showCoach(step, title, hint, duration = 3.2) {
+  function showCoach() {
     if (!firstRunTraining || !firstRunCoach) return;
-    coachTitle.textContent = title;
-    coachHint.textContent = hint;
-    firstRunCoach.dataset.step = String(step);
+    const step = tutorialSteps[coachStep];
+    coachTitle.textContent = step.title;
+    coachHint.textContent = step.hint;
+    coachArrow.textContent = step.arrow;
+    firstRunCoach.dataset.action = step.action;
     firstRunCoach.hidden = false;
-    coachTimer = duration;
   }
 
   function completeFirstRunTraining() {
     localStorage.setItem(firstRunCoachKey, "true");
     firstRunTraining = false;
-    coachTimer = 0;
+    tutorialPaused = false;
+    tutorialObstacle = null;
+    state.spawnTimer = 1.5;
     if (firstRunCoach) firstRunCoach.hidden = true;
+  }
+
+  function acceptTutorialAction(action) {
+    if (!firstRunTraining || !tutorialPaused) return;
+    if (tutorialSteps[coachStep]?.action !== action) return;
+    if (tutorialObstacle) tutorialObstacle.userData.tutorialCleared = true;
+    tutorialPaused = false;
+    tutorialObstacle = null;
+    state.running = true;
+    if (firstRunCoach) firstRunCoach.hidden = true;
+    setStatus("Great — keep moving");
+    coachStep += 1;
+    if (coachStep >= tutorialSteps.length) completeFirstRunTraining();
+    else tutorialSpawnDelay = 1.5;
   }
 
   const audio = createAudioController(() => state.running);
@@ -985,10 +1009,23 @@ export function startJumper3D(
     playJumpSound,
     playRollSound: playDuckSound,
   });
-  const jump = playerMovement.jump;
-  const superJump = playerMovement.superJump;
+  const jump = () => {
+    playerMovement.jump();
+    if (tutorialPaused && tutorialSteps[coachStep]?.action === "jump") {
+      acceptTutorialAction("jump");
+    } else if (state.jumpBoosted) {
+      acceptTutorialAction("superJump");
+    }
+  };
+  const superJump = () => {
+    playerMovement.superJump();
+    if (state.jumpBoosted) acceptTutorialAction("superJump");
+  };
   const setDuck = playerMovement.setDuck;
-  const roll = playerMovement.roll;
+  const roll = () => {
+    playerMovement.roll();
+    if (state.ducking) acceptTutorialAction("roll");
+  };
   const killPlayerTweens = playerMovement.killTweens;
   createWorld();
   setGraphicsQuality(initialGraphicsQuality(), false);
@@ -1047,8 +1084,10 @@ export function startJumper3D(
     audio.playRestart();
     if (firstRunTraining) {
       coachStep = 0;
-      coachTimer = 0;
-      coachOpeningTimer = 1;
+      tutorialPaused = false;
+      tutorialObstacle = null;
+      tutorialSpawnDelay = 0;
+      if (firstRunCoach) firstRunCoach.hidden = true;
     }
     beginCountdown();
   }
@@ -1056,26 +1095,24 @@ export function startJumper3D(
   function updateGame(delta, elapsed) {
     if (!state.running) return;
 
-    if (firstRunTraining) {
-      if (coachOpeningTimer > 0) {
-        coachOpeningTimer -= delta;
-        if (coachOpeningTimer <= 0) {
-          coachStep = 1;
-          showCoach(1, "1. Normal jump", "Jump over low barriers: press ↑, tap the screen, or use Jump.");
-        }
+    if (firstRunTraining && !tutorialObstacle) {
+      tutorialSpawnDelay -= delta;
+      if (tutorialSpawnDelay <= 0) {
+        tutorialObstacle = obstacleSpawner.spawnTutorial(
+          tutorialSteps[coachStep].action,
+        );
       }
-      if (coachTimer > 0) {
-        coachTimer -= delta * 3;
-        if (coachTimer <= 0 && coachStep === 1) {
-          coachStep = 2;
-          showCoach(2, "2. Roll", "Roll below high obstacles: press ↓, swipe down, or use Roll.");
-        } else if (coachTimer <= 0 && coachStep === 2) {
-          coachStep = 3;
-          showCoach(3, "3. Super jump", "For extra height, double-tap or press ↑ twice quickly.");
-        } else if (coachTimer <= 0 && coachStep === 3) {
-          completeFirstRunTraining();
-        }
-      }
+    }
+    if (
+      firstRunTraining &&
+      tutorialObstacle &&
+      !tutorialPaused &&
+      !tutorialObstacle.userData.scored &&
+      tutorialObstacle.position.x <= 0.2
+    ) {
+      tutorialPaused = true;
+      showCoach();
+      setStatus(`Training ${coachStep + 1}/3 — ${tutorialSteps[coachStep].title}`);
     }
 
     state.survivalTime += delta;
@@ -1126,6 +1163,11 @@ export function startJumper3D(
             });
         }
       }
+    }
+
+    if (tutorialPaused) {
+      updateScoreDisplay(state.score);
+      return;
     }
 
     while (state.scoreClock >= 1) {
@@ -1211,12 +1253,16 @@ export function startJumper3D(
     }
 
     const delta = Math.min(clock.getDelta(), 0.04);
-    const gameplayDelta = firstRunTraining && state.running ? delta * 0.32 : delta;
+    const gameplayDelta = delta;
     const elapsed = clock.elapsedTime;
     atmosphereEffects.update(elapsed);
     daySun.update(elapsed);
     nightMoon.update(elapsed);
-    loopingCityBackground.update(gameplayDelta, gameSpeed(), state.running);
+    loopingCityBackground.update(
+      tutorialPaused ? 0 : gameplayDelta,
+      gameSpeed(),
+      state.running,
+    );
     updateGame(gameplayDelta, elapsed);
 
     if (runAction && activePlayerAction === runAction && state.running) {

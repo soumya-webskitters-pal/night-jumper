@@ -62,3 +62,30 @@ Changed files:
 - `src/game/directionalCameraFog.js`
 - `src/game/engine.js`
 - `src/game/nearRoadBuildings.js`
+## v1.5.0 — 2026-08-17T14:05:56.734Z
+
+Type: minor
+
+Changed files:
+- `android/app/src/main/res/mipmap-hdpi/ic_launcher.png`
+- `android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png`
+- `android/app/src/main/res/mipmap-mdpi/ic_launcher.png`
+- `android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png`
+- `android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`
+- `android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png`
+- `android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
+- `android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png`
+- `android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
+- `android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png`
+- `android/app/src/main/res/values/ic_launcher_background.xml`
+- `src/components/ui/FirstRunCoach.jsx`
+- `src/game/collisionSystem.js`
+- `src/game/engine.js`
+- `src/game/obstacleFactory.js`
+- `src/game/obstacleSpawner.js`
+- `src/styles/hud.css`
